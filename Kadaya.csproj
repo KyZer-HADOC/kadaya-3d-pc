@@ -20,5 +20,8 @@
   <ItemGroup>
     <MonoGameContentReference Include="Content\Content.mgcb" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Kadaya.Tests\**\*.cs" />
+  </ItemGroup>
 </Project>
 

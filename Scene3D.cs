@@ -276,6 +276,20 @@ namespace Kadaya
             Pt(r, mFrus, 0, bob + 70, 0, 54, 56, 34, 0, Color.Lerp(dk2, new Color(48, 42, 62), .5f), null, a);
             Pt(r, mFrus, -27, bob + 87, 0, 24, 20, 34, -.08f, new Color(57, 48, 69), Em(ti, .12f), a);
             Pt(r, mFrus, 27, bob + 87, 0, 24, 20, 34, .08f, new Color(57, 48, 69), Em(ti, .12f), a);
+            Pt(r, mFrus, 0, bob + 73, 18, 38, 37, 10, 0, new Color(37, 31, 49), Em(ti, .14f), a);
+            Pt(r, mPyr, 0, bob + 80, 25, 17, 20, 8, 0, new Color(147, 130, 171), Em(ti, .34f), a);
+            for (int rib = 0; rib < 3; rib++)
+            {
+                float yy = bob + 60 + rib * 10;
+                Bm(r, mCube, new Vector2(-22 + rib * 2, yy), new Vector2(22 - rib * 2, yy - 2), 25, 2.2f, 2, new Color(119, 107, 139), Em(ti, .2f), a);
+            }
+            foreach (int side in new[] { -1, 1 })
+            {
+                Pt(r, mFrus, side * 39, bob + 102, 0, 29, 19, 35, -side * .12f, new Color(49, 42, 65), Em(ti, .2f), a);
+                Pt(r, mPyr, side * 49, bob + 107, 2, 14, 25, 18, 0, new Color(91, 78, 113), Em(ti, .28f), a);
+                Pt(r, mCone, side * 49, bob + 124, 0, 10, 22, 10, -side * .25f, dk2, Em(ti, .1f), a);
+                Pt(r, mCyl, side * 27, bob + 45, 15, 18, 10, 7, 0, new Color(61, 52, 73), Em(ti, .16f), a);
+            }
             foreach (int side in new[] { -1, 1 })
             {
                 Pt(r, mPyr, side * 31, bob + 92, 1, 11, 18, 15, 0, Color.Lerp(dk2, ti, .18f), Em(ti, .16f), a);
@@ -285,6 +299,9 @@ namespace Kadaya
             Pt(r, mCyl, 0, bob + 43, 0, 57, 7, 36, 0, new Color(35, 28, 44), Em(ti, .1f), a);
             Pt(r, mCube, 0, bob + 43, 19, 13, 12, 5, 0, new Color(177, 146, 92), Em(OR, .25f), a);
             Pt(r, mSph, -2, bob + 108, 0, 54, 36, 42, 0, dk2, null, a); Pt(r, mSph, 4, bob + 132, 0, 46, 48, 44, 0, dk2, null, a); Pt(r, mCone, -22, bob + 124, 0, 26, 52, 26, 1.9f, dk2, Em(ti, .05f), a);
+            Pt(r, mFrus, 3, bob + 147, 0, 36, 15, 34, 0, new Color(44, 37, 58), Em(ti, .18f), a);
+            foreach (int side in new[] { -1, 1 }) Pt(r, mCone, 3 + side * 15, bob + 151, 1, 10, 23, 10, -side * .34f, new Color(92, 78, 114), Em(ti, .16f), a);
+            Pt(r, mCyl, 22, bob + 129, 13, 17, 4, 4, 0, new Color(164, 153, 181), Em(ti, .2f), a);
             Pt(r, mSph, 14, bob + 128, 5, 24, 30, 20, 0, Color.Black, null, a);
             foreach (float ez in new[] { 6f, -3f }) { Pt(r, mSph, 22, bob + 130, ez, 7, 7, 7, 0, eye, Em(eye, 1f), a); GlowG(r, 22, bob + 130, ez, 18, Ad(ti, a)); }
             float ang0 = ScytheAng(at, cb, chg, air, run, tt), ca = MathF.Cos(ang0), sa = MathF.Sin(ang0); var d = new Vector2(ca, -sa); var nrm = new Vector2(-sa, -ca);
@@ -323,6 +340,14 @@ namespace Kadaya
             }
             float bw = sm || e.Boss ? 52 : 38;
             Pt(r, mCube, idle * .3f, 68, 0, bw, 50, 26, 0, col, null, al); Pt(r, mFrus, 0, 34, 0, bw + 10, 26, 30, 0, dk, null, al); Pt(r, mCube, 0, 46, 0, bw * .95f, 5, 28, 0, trim, trE, al);
+            Pt(r, mFrus, 0, 73, 15, bw * .58f, 29, 9, 0, Color.Lerp(col, trim, .24f), Em(ac, .15f), al);
+            Pt(r, mPyr, 0, 75, 21, 15, 18, 7, 0, trim, trE, al);
+            foreach (int sd in new[] { -1, 1 })
+            {
+                Pt(r, mFrus, sd * (bw * .43f), 83, 0, 24, 19, 31, -sd * .12f, Color.Lerp(col, trim, .3f), Em(ac, .12f), al);
+                Pt(r, mCyl, sd * 23, 49, 4, 17, 12, 6, 0, dk, Em(ac, .1f), al);
+            }
+            Bm(r, mCube, new Vector2(-bw * .28f, 95), new Vector2(bw * .27f, 53), 17, 4, 3, trim, trE, al);
             for (int k = 0; k < 4; k++) if (sm || e.Boss) Pt(r, mCube, 0, 90 - k * 11, 0, bw + 1, 2.4f, 27, 0, trim, trE, al);
             if (sm || e.Boss) foreach (int sd in new[] { -1, 1 }) Pt(r, mCube, sd * (bw / 2 + 3), 90, 0, 20, 14, 34, 0, Color.Lerp(col, trim, .3f), null, al);
             if (ar) Pt(r, mCube, -15, 80, -12, 9, 36, 9, -.3f, dk, null, al);
@@ -330,6 +355,17 @@ namespace Kadaya
             Pt(r, mSph, idle * .3f, 106, 0, 27, 27, 27, 0, col, null, al);
             if (sm || e.Boss && e.Kind != 1) { Pt(r, mSph, 0, 114, 0, 38, 24, 36, 0, Color.Lerp(col, trim, .2f), null, al); Pt(r, mCyl, 0, 104, 0, 46, 4, 44, 0, trim, trE, al); foreach (int sd in new[] { -1, 1 }) Pt(r, mCone, sd * 12, 134, 0, 9, 32, 9, -sd * .5f, ac, acE, al); Pt(r, mCube, 8, 98, 0, 17, 10, 26, 0, new Color(80, 12, 22), null, al); }
             else if (ar) Pt(r, mCone, 0, 124, 0, 68, 30, 68, 0, Color.Lerp(col, trim, .25f), null, al); else Pt(r, mCube, 0, 109, 0, 28, 4.5f, 29, 0, ac, acE, al);
+            if (sm || e.Boss && e.Kind != 1)
+            {
+                Pt(r, mCube, 0, 104, 14, 25, 10, 7, 0, dk, null, al);
+                Pt(r, mCube, 0, 103, 18, 13, 3, 3, 0, ac, acE, al);
+                Pt(r, mPyr, 0, 133, 1, 24, 14, 26, 0, Color.Lerp(col, trim, .34f), Em(ac, .12f), al);
+            }
+            else
+            {
+                Pt(r, mCube, 0, 103, 14, 22, 8, 6, 0, dk, null, al);
+                Pt(r, mCube, 0, 103, 18, 11, 2.5f, 2.5f, 0, ac, acE, al);
+            }
             if (e.Boss) foreach (int sd in new[] { -1, 1 }) Pt(r, mCone, sd * 14, 140, 0, 13, 48, 13, -sd * .45f, ac, acE, al);
             Pt(r, mCube, 10, 108, 11, 12, 3.6f, 3, 0, ac, Em(ac, 1f), al); GlowG(r, 10, 108, 11, 22, Ad(ac, al));
             var sh = new Vector2(8, 92); var gp = new Vector2(16, 72); specK = .8f;
@@ -398,11 +434,20 @@ namespace Kadaya
             if (mouseLook)
             {
                 int centerX = bounds.Width / 2, centerY = bounds.Height / 2;
+                float dt = Math.Min(.05f, (float)gt.ElapsedGameTime.TotalSeconds);
                 if (cameraCaptured)
                 {
                     float scale = W / (float)bounds.Width;
-                    camYaw -= (ms.X - centerX) * scale * .0045f;
-                    camPitch = Cl(camPitch + (ms.Y - centerY) * scale * .0035f, -.12f, .72f);
+                    int dx = ms.X - centerX, dy = ms.Y - centerY;
+                    camYaw += CameraMotion.MouseYawDelta(dx, scale);
+                    camPitch = Cl(camPitch + CameraMotion.MousePitchDelta(dy, scale), -.12f, .72f);
+                    if (Math.Abs(dx) + Math.Abs(dy) > 1) camMouseIdle = 0;
+                    else camMouseIdle += dt;
+                    if (camMouseIdle > .8f && (Math.Abs(P.Vx) + Math.Abs(P.Vz) > 90 || P.Dash > 0))
+                    {
+                        float followYaw = P.Yaw - MathHelper.PiOver2;
+                        camYaw = CameraMotion.ApproachYaw(camYaw, followYaw, dt, 2.4f);
+                    }
                 }
                 cameraCaptured = true;
                 if (ms.X != centerX || ms.Y != centerY) Mouse.SetPosition(centerX, centerY);
@@ -413,7 +458,8 @@ namespace Kadaya
             {
                 camDistance = Cl(camDistance - (wheel - cameraWheel) * .45f, 540, 1500); cameraWheel = wheel;
             }
-            cam += (Cl(P.X - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)) - cam) * .08f; camZ += (P.Z - camZ) * .08f; camY += (Cl(P.Y - 500, -220, 0) - camY) * .06f;
+            float follow = 1 - MathF.Exp(-Math.Min(.05f, (float)gt.ElapsedGameTime.TotalSeconds) * 5f);
+            cam += (Cl(P.X - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)) - cam) * follow; camZ += (P.Z - camZ) * follow; camY += (Cl(P.Y - 500, -220, 0) - camY) * follow;
             float sx = Rf(-1, 1) * shake, sy = Rf(-1, 1) * shake;
             SetCam(sx, sy); Lighting();
             GraphicsDevice.SetRenderTarget(rt); GraphicsDevice.Viewport = new Viewport(0, 0, rt.Width, rt.Height); GraphicsDevice.Clear(Color.Black);
@@ -456,3 +502,4 @@ namespace Kadaya
         }
     }
 }
+

@@ -28,7 +28,7 @@ namespace Kadaya
         MouseState mouseCur, mousePrev;
 
         string state = "title", banS = "";
-        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1; bool ultHit = true, bossDead, cameraCaptured;
+        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1, camMouseIdle; bool ultHit = true, bossDead, cameraCaptured;
         int lv, kills; Level L; float checkX, checkZ = 110; bool[] lit;
         Pl P = new Pl();
         List<Foe> en = new List<Foe>(); List<Proj> proj = new List<Proj>(); List<Clone> clones = new List<Clone>();
@@ -362,7 +362,7 @@ namespace Kadaya
             if (Pr(Keys.Escape)) Exit();
             if (Pr(Keys.F11)) gdm.ToggleFullScreen();
             if (Pr(Keys.F6)) { renderScale = renderScale >= 1.49f ? 1 : renderScale + .25f; CreateRenderTargets(); banS = "RENDER QUALITY  " + (int)(renderScale * 100) + "%"; banT = 1.5f; }
-            if (Pr(Keys.F7)) { camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880; banS = "CAMERA RESET"; banT = 1.2f; }
+            if (Pr(Keys.F7)) { camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880; camMouseIdle = 0; banS = "CAMERA RESET"; banT = 1.2f; }
             if (state == "title") { if (Pr(Keys.Enter)) state = "play"; if (Pr(Keys.N)) { lv = 0; SaveLv(); LoadLevel(0, 250); } }
             else if (state == "dead") { if (Pr(Keys.Enter)) { LoadLevel(lv, checkX, checkZ); state = "play"; } }
             else if (state == "win")
@@ -375,3 +375,4 @@ namespace Kadaya
         }
     }
 }
+

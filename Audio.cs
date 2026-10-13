@@ -54,11 +54,35 @@ namespace Kadaya
             return new SoundEffect(Pcm(m), sr, AudioChannels.Mono);
         }
 
+        SoundEffect SynAction(string k)
+        {
+            const int sr = 22050;
+            float dur = k == "jump" ? .34f : k == "dash" ? .29f : .24f;
+            int n = (int)(dur * sr); var samples = new float[n]; var rng = new Random(k == "jump" ? 31 : k == "dash" ? 47 : 59);
+            double phase = 0; float noise = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float u = i / (float)n;
+                float freq = k == "jump" ? 135 + 440 * u * u : k == "dash" ? 1050 - 820 * u : 105 - 58 * u;
+                phase += freq / sr;
+                noise += (float)(((rng.NextDouble() * 2 - 1) - noise) * (k == "land" ? .16 : .32));
+                double tone = Math.Sin(phase * 6.2831853);
+                double overtone = Math.Sin(phase * 12.5663706) * (k == "land" ? .14 : .28);
+                double grit = noise * (k == "land" ? 1.25 : .8) * Math.Pow(1 - u, k == "dash" ? 8 : 5);
+                double envelope = k == "jump"
+                    ? Math.Min(1, i / (sr * .008)) * Math.Pow(1 - u, 1.5)
+                    : Math.Min(1, i / (sr * .002)) * Math.Pow(1 - u, k == "land" ? 3.2 : 2.5);
+                double sub = k == "land" ? Math.Sin(phase * 3.14159265) * Math.Pow(1 - u, 4) : 0;
+                samples[i] = (float)((tone * .58 + overtone * .2 + grit * .23 + sub * .55) * envelope * .82);
+            }
+            return new SoundEffect(Pcm(samples), sr, AudioChannels.Mono);
+        }
+
         void Sfx(string k, float x = float.NaN, float v = 1f)
         {
             try
             {
-                if (!sfxc.TryGetValue(k, out var se)) { se = Syn(SP[k]); sfxc[k] = se; }
+                if (!sfxc.TryGetValue(k, out var se)) { se = k == "jump" || k == "dash" || k == "land" ? SynAction(k) : Syn(SP[k]); sfxc[k] = se; }
                 float pan = float.IsNaN(x) ? 0 : Cl((x - (cam + W / 2f)) / 700f, -1, 1);
                 se.Play(Cl(v * .75f, 0, 1), Rf(-.12f, .12f), pan);
             }
@@ -124,3 +148,4 @@ namespace Kadaya
         }
     }
 }
+

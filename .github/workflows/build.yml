@@ -19,6 +19,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Check camera motion
+        run: dotnet run --project Kadaya.Tests/Kadaya.Tests.csproj -c Release
+
       - name: Restore tools
         run: dotnet tool restore
 
