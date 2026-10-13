@@ -18,8 +18,8 @@ namespace Kadaya
         // ---------- procedural meshes ----------
         void Init3D()
         {
-            be = new BasicEffect(GraphicsDevice) { TextureEnabled = false, VertexColorEnabled = false, SpecularColor = Vector3.Zero, SpecularPower = 28 };
-            mCube = MkCube(); mSph = MkSphere(12, 18); mCyl = MkRound(16, 1f); mCone = MkRound(16, 0f); mPyr = MkRound(4, 0f); mFrus = MkRound(16, .8f);
+            be = new BasicEffect(GraphicsDevice) { TextureEnabled = false, VertexColorEnabled = false, SpecularColor = Vector3.Zero, SpecularPower = 48 };
+            mCube = MkCube(); mSph = MkSphere(24, 32); mCyl = MkRound(24, 1f); mCone = MkRound(24, 0f); mPyr = MkRound(4, 0f); mFrus = MkRound(24, .8f);
         }
         Mesh Build(List<VertexPositionNormalTexture> v, List<ushort> ix)
         {
@@ -68,17 +68,16 @@ namespace Kadaya
 
         // ---------- camera, light, draw helpers ----------
         Vector3 MoonPos() => new Vector3(cam + W / 2f + 340, 560, -3300);
-        Vector2 Sc(float gx, float gy, float gz = 0) { var vp = new Viewport(0, 0, W, H); var p = vp.Project(new Vector3(gx, G - gy, gz), projM, view, Matrix.Identity); return new Vector2(p.X, p.Y); }
-        Vector2 MoonScr() { var vp = new Viewport(0, 0, W, H); var p = vp.Project(MoonPos(), projM, view, Matrix.Identity); return new Vector2(p.X, p.Y); }
-        Matrix OverlayM()
-        {
-            float rx = P.X, ry = P.Y - 60; var p0 = Sc(rx, ry); var ax = Sc(rx + 1, ry) - p0; var ay = Sc(rx, ry + 1) - p0; var m = Matrix.Identity;
-            m.M11 = ax.X; m.M12 = ax.Y; m.M21 = ay.X; m.M22 = ay.Y; m.M41 = p0.X - rx * ax.X - ry * ay.X; m.M42 = p0.Y - rx * ax.Y - ry * ay.Y; return m;
-        }
+        Vector2 Sc(float gx, float gy, float gz = 110) { var vp = new Viewport(0, 0, (int)(W * renderScale), (int)(H * renderScale)); var p = vp.Project(new Vector3(gx, G - gy, gz), projM, view, Matrix.Identity); return new Vector2(p.X / renderScale, p.Y / renderScale); }
+        Vector2 ScreenAt(float x, float worldY, float z) { var vp = new Viewport(0, 0, (int)(W * renderScale), (int)(H * renderScale)); var p = vp.Project(new Vector3(x, worldY, z), projM, view, Matrix.Identity); return new Vector2(p.X / renderScale, p.Y / renderScale); }
+        Vector2 MoonScr() { var vp = new Viewport(0, 0, (int)(W * renderScale), (int)(H * renderScale)); var p = vp.Project(MoonPos(), projM, view, Matrix.Identity); return new Vector2(p.X / renderScale, p.Y / renderScale); }
         void SetCam(float sx, float sy)
         {
-            var tgt = new Vector3(cam + W / 2f, G - (camY + H / 2f), 0); var pos = tgt + new Vector3(MathF.Sin(t * .2f) * 8 + sx, 170 - sy, 880);
-            view = Matrix.CreateLookAt(pos, tgt + new Vector3(0, -20, 0), Vector3.Up); projM = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, W / (float)H, 50, 12000);
+            var tgt = new Vector3(cam + W / 2f, 190 - camY, camZ);
+            float pitch = camPitch;
+            var offset = new Vector3(MathF.Sin(camYaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(camYaw) * MathF.Cos(pitch)) * camDistance;
+            var pos = tgt + offset + new Vector3(sx, -sy, 0);
+            view = Matrix.CreateLookAt(pos, tgt, Vector3.Up); projM = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, W / (float)H, 30, 14000);
             be.View = view; be.Projection = projM;
         }
         void Lighting()
@@ -101,13 +100,14 @@ namespace Kadaya
         { float dx = x2 - x1, dy = y2 - y1, len = Math.Max(.01f, MathF.Sqrt(dx * dx + dy * dy)); Shape(m, Matrix.CreateScale(w, len, dz) * Matrix.CreateRotationZ(MathF.Atan2(-dx, dy)) * Matrix.CreateTranslation((x1 + x2) / 2, (y1 + y2) / 2, z), c, em); }
 
         // ---------- rigs (characters built from shapes) ----------
-        Rig MkRig(float X, float Y, int f, float s, float yaw) => new Rig { S = s, R = Matrix.CreateScale(s) * Matrix.CreateRotationY(f > 0 ? -yaw : MathF.PI + yaw) * Matrix.CreateTranslation(X, G - Y, 0) };
+        Rig MkRig(float X, float Y, float Z, float s, float yaw) => new Rig { S = s, R = Matrix.CreateScale(s) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(X, G - Y, Z) };
         void Pt(Rig r, Mesh m, float x, float y, float z, float sx, float sy, float sz, float rz, Color c, Color? em = null, float al = 1) => Shape(m, Matrix.CreateScale(sx, sy, sz) * Matrix.CreateRotationZ(rz) * Matrix.CreateTranslation(x, y, z) * r.R, c, em, al);
         void Bm(Rig r, Mesh m, Vector2 a, Vector2 b, float z, float w, float dz, Color c, Color? em = null, float al = 1)
         { var d = b - a; float len = Math.Max(.01f, d.Length()); var mid = (a + b) / 2; Shape(m, Matrix.CreateScale(w, len, dz) * Matrix.CreateRotationZ(MathF.Atan2(-d.X, d.Y)) * Matrix.CreateTranslation(mid.X, mid.Y, z) * r.R, c, em, al); }
-        Vector2 GP(Rig r, float x, float y, float z = 0) { var v = Vector3.Transform(new Vector3(x, y, z), r.R); return new Vector2(v.X, G - v.Y); }
-        void GlowG(Rig r, float x, float y, float z, float rad, Color c) { var g = GP(r, x, y, z); glows.Add(new GlowReq { X = g.X, Y = g.Y, R = rad * r.S, C = c }); }
-        void Blob(float X, float Y, float rad, float al) { float fy = FloorBelow(X, Y); if (fy < 9999) Shape(mCyl, Mx(X, G - fy + 1.2f, 0, rad * 2, 1, rad * 1.4f), Color.Black, null, al * (1 - Cl((fy - Y) / 300, 0, .8f)) * .6f); }
+        Vector3 GP(Rig r, float x, float y, float z = 0) => Vector3.Transform(new Vector3(x, y, z), r.R);
+        void GlowG(Rig r, float x, float y, float z, float rad, Color c) { var g = GP(r, x, y, z); var p = ScreenAt(g.X, g.Y, g.Z); glows.Add(new GlowReq { X = p.X, Y = p.Y, R = rad * r.S, C = c }); }
+        void GlowAt(float x, float worldY, float z, float rad, Color c) { var p = ScreenAt(x, worldY, z); glows.Add(new GlowReq { X = p.X, Y = p.Y, R = rad, C = c }); }
+        void Blob(float X, float Y, float Z, float rad, float al) { float fy = FloorBelow(X, Y, Z); if (fy < 9999) Shape(mCyl, Mx(X, G - fy + 1.2f, Z, rad * 2, 1, rad * 1.4f), Color.Black, null, al * (1 - Cl((fy - Y) / 300, 0, .8f)) * .6f); }
 
         // ---------- sky backdrop (2D) ----------
         void Backdrop()
@@ -123,6 +123,16 @@ namespace Kadaya
         {
             var th = L.Th; float x0 = Math.Max(a, cam - 1400), x1 = Math.Min(b, cam + W + 1400); if (x1 <= x0) return; float cx = (x0 + x1) / 2, w = x1 - x0;
             Bx(cx, -200, 110, w, 400, 840, th.Ground); Bx(cx, -.5f, 110, w, 3, 840, Color.Lerp(th.Ground, th.Accent, .12f), Em(th.Accent, .1f)); Bx(cx, 0, 520, w, 4, 4, th.Accent, Em(th.Accent, 1f));
+            for (float tileX = (float)Math.Floor(x0 / 170) * 170; tileX < x1; tileX += 170)
+                for (float z = -220; z <= 410; z += 150)
+                {
+                    float left = Math.Max(tileX, x0), right = Math.Min(tileX + 170, x1), width = right - left - 2;
+                    if (width <= 0) continue;
+                    float x = (left + right) / 2;
+                    Color stone = Color.Lerp(th.Ground, th.Accent, Hs(tileX * .13f + z * .07f) * .08f);
+                    Bx(x, 1.1f, z + 72, width, 1.1f, 142, stone);
+                    if (Hs(tileX + z) > .74f) Bx(x, 1.8f, z + 72, Math.Min(36, width), .8f, 2, Color.Lerp(stone, th.Moon, .14f));
+                }
             Color gc = Color.Lerp(th.Ground, Color.Black, .55f);
             for (float x = (float)Math.Floor(x0 / 55) * 55; x < x1; x += 55) { float h = 14 + Hs(x) * 34, zz = -150 + Hs(x * 1.3f) * 520, sw = MathF.Sin(t * 1.5f + x * .05f) * .12f; Shape(mCone, Mx(x, h / 2, zz, 9, h, 9, 0, sw), gc); }
             if (a > 0) { Bx(a + 3, -80, 110, 6, 320, 840, Color.Black); } Bx(b - 3, -80, 110, 6, 320, 840, Color.Black);
@@ -138,8 +148,8 @@ namespace Kadaya
             foreach (var p in L.Plats)
             {
                 if (p.X > cam + W + 400 || p.X + p.W < cam - 400) continue; float cx = p.X + p.W / 2, y = G - p.Y;
-                Bx(cx, y - 15, 0, p.W, 30, 170, new Color(26, 20, 34)); Bx(cx, y - 1, 0, p.W + 4, 5, 174, new Color(54, 44, 66), Em(th.Accent, .12f)); Bx(cx, y, 86, p.W, 3, 3, th.Accent, Em(th.Accent, 1f));
-                for (float x = p.X + 12; x < p.X + p.W; x += 24) { float h = 16 + Hs(x) * 24; Shape(mCone, Mx(x, y - 30 - h / 2, 0, 14, h, 14, 0, MathF.PI), new Color(14, 10, 20)); }
+                Bx(cx, y - 15, 86, p.W, 30, 170, new Color(26, 20, 34)); Bx(cx, y - 1, 86, p.W + 4, 5, 174, new Color(54, 44, 66), Em(th.Accent, .12f)); Bx(cx, y, 86, p.W, 3, 3, th.Accent, Em(th.Accent, 1f));
+                for (float x = p.X + 12; x < p.X + p.W; x += 24) { float h = 16 + Hs(x) * 24; Shape(mCone, Mx(x, y - 30 - h / 2, 86, 14, h, 14, 0, MathF.PI), new Color(14, 10, 20)); }
                 for (float x = p.X + 20; x < p.X + p.W; x += 40) Bx(x, y - 14, 87, 10, 10, 2, th.Accent, Em(th.Accent, .8f));
             }
         }
@@ -148,8 +158,14 @@ namespace Kadaya
             foreach (var s in L.Spikes)
             {
                 if (s.X > cam + W + 400 || s.Y < cam - 400) continue;
-                for (float x = s.X; x < s.Y; x += 20) for (int row = 0; row < 2; row++) { float zz = row == 0 ? 0 : 30, h = 44 + row * 8; Shape(mCone, Mx(x + 10, h / 2, zz, 18, h, 18), new Color(30, 26, 38)); Shape(mSph, Mx(x + 10, h - 3, zz, 8, 8, 8), new Color(90, 10, 20), Em(RD, .9f)); }
-                glows.Add(new GlowReq { X = (s.X + s.Y) / 2, Y = G - 10, R = (s.Y - s.X) / 2 + 50, C = Ad(RD, .18f) });
+                for (float x = s.X; x < s.Y; x += 28)
+                    for (float zz = -250; zz <= 450; zz += 70)
+                    {
+                        float h = 44 + Hs(x + zz) * 8;
+                        Shape(mCone, Mx(x + 14, h / 2, zz, 20, h, 20), new Color(30, 26, 38));
+                        Shape(mSph, Mx(x + 14, h - 3, zz, 8, 8, 8), new Color(90, 10, 20), Em(RD, .9f));
+                    }
+                GlowAt((s.X + s.Y) / 2, G - 10, 110, (s.Y - s.X) / 2 + 50, Ad(RD, .18f));
             }
         }
         void Checks3()
@@ -157,23 +173,23 @@ namespace Kadaya
             for (int i = 0; i < L.Checks.Count; i++)
             {
                 float x = L.Checks[i]; if (x < cam - 400 || x > cam + W + 400) continue; bool on = lit[i]; var ac = L.Th.Accent;
-                Bx(x, 14, 0, 58, 28, 58, new Color(30, 26, 38)); Shape(mCyl, Mx(x, 58, 0, 22, 60, 22), new Color(38, 34, 48)); Bx(x, 98, 0, 44, 38, 44, new Color(24, 20, 32), on ? Em(ac, .15f) : (Color?)null); Shape(mPyr, Mx(x, 128, 0, 70, 26, 70, MathF.PI / 4), new Color(20, 16, 26));
-                if (on) { Bx(x, 98, 0, 28, 24, 46, ac, Em(ac, 1f)); glows.Add(new GlowReq { X = x, Y = G - 98, R = 250 * (1 + .12f * MathF.Sin(t * 9 + x)), C = Ad(ac, .5f) }); for (int k = 0; k < 6; k++) { float yy = (t * 45 + k * 28) % 170; glows.Add(new GlowReq { X = x + MathF.Sin(t * 2 + k * 1.7f) * 22, Y = G - 120 - yy, R = 10, C = Ad(ac, 1 - yy / 170f) }); } }
+                Bx(x, 14, 110, 58, 28, 58, new Color(30, 26, 38)); Shape(mCyl, Mx(x, 58, 110, 22, 60, 22), new Color(38, 34, 48)); Bx(x, 98, 110, 44, 38, 44, new Color(24, 20, 32), on ? Em(ac, .15f) : (Color?)null); Shape(mPyr, Mx(x, 128, 110, 70, 26, 70, MathF.PI / 4), new Color(20, 16, 26));
+                if (on) { Bx(x, 98, 110, 28, 24, 46, ac, Em(ac, 1f)); GlowAt(x, G - 98, 110, 250 * (1 + .12f * MathF.Sin(t * 9 + x)), Ad(ac, .5f)); for (int k = 0; k < 6; k++) { float yy = (t * 45 + k * 28) % 170; GlowAt(x + MathF.Sin(t * 2 + k * 1.7f) * 22, G - 120 - yy, 110, 10, Ad(ac, 1 - yy / 170f)); } }
             }
         }
         void Gate3()
         {
             float x = L.GateX; if (x < cam - 600 || x > cam + W + 600) return; var ac = L.Th.Accent; Color st = new Color(24, 18, 30);
-            Shape(mCyl, Mx(x - 110, 190, 0, 40, 380, 40), st, Em(ac, .1f)); Shape(mCyl, Mx(x + 110, 190, 0, 40, 380, 40), st, Em(ac, .1f)); Bx(x, 385, 0, 310, 26, 40, st); Bx(x, 345, 0, 250, 12, 30, st); Shape(mPyr, Mx(x, 425, 0, 360, 50, 120, MathF.PI / 4), st);
-            Bx(x, 380, 22, 300, 4, 4, ac, Em(ac, bossDead ? 1f : .3f));
-            if (bossDead) { glows.Add(new GlowReq { X = x, Y = G - 190, R = 260, C = Ad(ac, .8f) }); for (int k = 0; k < 10; k++) { float yy = (t * 70 + k * 40) % 380; glows.Add(new GlowReq { X = x + MathF.Sin(t * 2 + k) * 60, Y = G - yy, R = 14, C = Ad(WH, .8f) }); } }
+            Shape(mCyl, Mx(x - 110, 190, 110, 40, 380, 40), st, Em(ac, .1f)); Shape(mCyl, Mx(x + 110, 190, 110, 40, 380, 40), st, Em(ac, .1f)); Bx(x, 385, 110, 310, 26, 40, st); Bx(x, 345, 110, 250, 12, 30, st); Shape(mPyr, Mx(x, 425, 110, 360, 50, 120, MathF.PI / 4), st);
+            Bx(x, 380, 132, 300, 4, 4, ac, Em(ac, bossDead ? 1f : .3f));
+            if (bossDead) { GlowAt(x, G - 190, 110, 260, Ad(ac, .8f)); for (int k = 0; k < 10; k++) { float yy = (t * 70 + k * 40) % 380; GlowAt(x + MathF.Sin(t * 2 + k) * 60, G - yy, 110, 14, Ad(WH, .8f)); } }
         }
         void GatePortal3()
         {
             float x = L.GateX; if (x < cam - 600 || x > cam + W + 600) return; var ac = L.Th.Accent;
-            if (bossDead) Bx(x, 190, 0, 176, 360, 6, ac, Em(ac, 1f), 0, 0); else { Bx(x, 190, 0, 176, 360, 8, new Color(30, 0, 10), Em(RD, .35f + .1f * MathF.Sin(t * 3))); BeamXY(mCube, x - 88, 10, x + 88, 370, 6, 5, 5, RD, Em(RD, .8f)); BeamXY(mCube, x + 88, 10, x - 88, 370, 6, 5, 5, RD, Em(RD, .8f)); }
+            if (bossDead) Bx(x, 190, 110, 176, 360, 6, ac, Em(ac, 1f), 0, 0); else { Bx(x, 190, 110, 176, 360, 8, new Color(30, 0, 10), Em(RD, .35f + .1f * MathF.Sin(t * 3))); BeamXY(mCube, x - 88, 10, x + 88, 370, 116, 5, 5, RD, Em(RD, .8f)); BeamXY(mCube, x + 88, 10, x - 88, 370, 116, 5, 5, RD, Em(RD, .8f)); }
         }
-        void Souls3() { foreach (var s in L.Souls) { if (s.Got || s.X < cam - 300 || s.X > cam + W + 300) continue; float by = G - s.Y + MathF.Sin(t * 3 + s.X) * 8; Shape(mSph, Mx(s.X, by, 0, 18, 18, 18), new Color(240, 220, 255), Em(VI, 1f)); Shape(mCone, Mx(s.X - 4, by - 20, 0, 12, 28, 12, 0, MathF.PI + MathF.Sin(t * 4) * .3f), VI, Em(VI, .8f)); glows.Add(new GlowReq { X = s.X, Y = G - by, R = 60, C = Ad(VI, .8f) }); } }
+        void Souls3() { foreach (var s in L.Souls) { if (s.Got || s.X < cam - 300 || s.X > cam + W + 300) continue; float by = G - s.Y + MathF.Sin(t * 3 + s.X) * 8; Shape(mSph, Mx(s.X, by, 110, 18, 18, 18), new Color(240, 220, 255), Em(VI, 1f)); Shape(mCone, Mx(s.X - 4, by - 20, 110, 12, 28, 12, 0, MathF.PI + MathF.Sin(t * 4) * .3f), VI, Em(VI, .8f)); GlowAt(s.X, by, 110, 60, Ad(VI, .8f)); } }
 
         // ---------- background scenery in true 3D depth ----------
         void BgLayer(float z, float sp, int kind, float sc, Color col, float jz)
@@ -230,12 +246,12 @@ namespace Kadaya
         }
 
         // ---------- THE GRIM REAPER (3D, built from shapes) ----------
-        void Reaper3D(float X, float Y, int f, float a, float tt, float vx, bool air, float at, int cb, bool chg, Color ti, float s = 1)
+        void Reaper3D(float X, float Y, float Z, int f, float a, float tt, float vx, bool air, float at, int cb, bool chg, Color ti, float s = 1, float yaw = 0)
         {
-            Rig r = MkRig(X, Y, f, s, .28f); bool run = Math.Abs(vx) > 60 && !air; float flow = Cl(-vx * f * .055f, -12, 40) + (air ? 10 : 0), bob = (run ? MathF.Abs(MathF.Sin(tt * 13)) * 4 : MathF.Sin(tt * 2.2f) * 3) + 4;
+            Rig r = MkRig(X, Y, Z, s, yaw); bool run = Math.Abs(vx) > 60 && !air; float flow = Cl(-vx * f * .055f, -12, 40) + (air ? 10 : 0), bob = (run ? MathF.Abs(MathF.Sin(tt * 13)) * 4 : MathF.Sin(tt * 2.2f) * 3) + 4;
             Color dk = new Color(7, 5, 12), dk2 = new Color(16, 11, 26), bone = new Color(216, 208, 190), eye = ti == CY ? new Color(170, 255, 255) : new Color(224, 200, 255);
-            if (s == 1) Blob(X, Y, 38, a);
-            glows.Add(new GlowReq { X = GP(r, 0, 65 + bob).X, Y = GP(r, 0, 65 + bob).Y, R = 110 * s, C = Ad(ti, .28f * a) });
+            if (s == 1) Blob(X, Y, Z, 38, a);
+            GlowG(r, 0, 65 + bob, 0, 110 * s, Ad(ti, .28f * a));
             for (int i = 0; i < 6; i++)
             {
                 float u = 1 - i / 5f, rad = 46 * MathF.Pow(.8f, i), ox = -4 + flow * u * u * 1.1f + MathF.Sin(tt * 3.2f + u * 5) * (1 + 4 * u);
@@ -275,9 +291,9 @@ namespace Kadaya
             if (e.Boss) { if (e.Kind == 0) { col = new Color(78, 18, 22); ac = new Color(255, 70, 30); trim = OR; } else if (e.Kind == 1) { col = new Color(18, 32, 54); ac = CY; trim = new Color(160, 220, 255); } else { col = new Color(56, 14, 8); ac = new Color(255, 140, 30); trim = new Color(255, 210, 90); } }
             else if (sm) { col = new Color(52, 26, 34); ac = OR; trim = new Color(255, 200, 110); } else if (ar) { col = new Color(36, 28, 60); ac = new Color(164, 92, 255); trim = new Color(200, 160, 255); } else { col = new Color(22, 26, 46); ac = RD; trim = new Color(110, 130, 180); }
             if (fl) col = WH; Color dk = Color.Lerp(col, Color.Black, .5f), acE = Em(ac, .9f), trE = Em(trim, .45f);
-            Rig r = MkRig(e.X, e.Y, f, s, .35f); bool air = e.Y < G - 6; float w = MathF.Sin(e.Walk * 12) * (e.Mv != 0 ? 1 : 0), idle = MathF.Sin(e.Ph * 2.4f) * 2;
-            Blob(e.X, e.Y, 42 * s, al); glows.Add(new GlowReq { X = e.X, Y = e.Y - 60 * s, R = 90 * s, C = Ad(ac, (fl ? .6f : .2f) * al) });
-            if (e.Boss) { glows.Add(new GlowReq { X = e.X, Y = e.Y - 95 * s, R = (170 + MathF.Sin(t * 3) * 18) * s * .7f, C = Ad(ac, .25f * al) }); if (e.Kind == 2) for (int k = 0; k < 6; k++) { float yy = (t * 90 + k * 40) % 240; glows.Add(new GlowReq { X = e.X + MathF.Sin(t * 3 + k) * 40 * s, Y = e.Y - yy * s, R = 10 * s, C = Ad(ac, 1 - yy / 240f) }); } }
+            Rig r = MkRig(e.X, e.Y, e.Z, s, e.Yaw); bool air = e.Y < G - 6; float w = MathF.Sin(e.Walk * 12) * (e.Mv != 0 ? 1 : 0), idle = MathF.Sin(e.Ph * 2.4f) * 2;
+            Blob(e.X, e.Y, e.Z, 42 * s, al); GlowAt(e.X, G - e.Y + 60 * s, e.Z, 90 * s, Ad(ac, (fl ? .6f : .2f) * al));
+            if (e.Boss) { GlowAt(e.X, G - e.Y + 95 * s, e.Z, (170 + MathF.Sin(t * 3) * 18) * s * .7f, Ad(ac, .25f * al)); if (e.Kind == 2) for (int k = 0; k < 6; k++) { float yy = (t * 90 + k * 40) % 240; GlowAt(e.X + MathF.Sin(t * 3 + k) * 40 * s, G - e.Y + yy * s, e.Z, 10 * s, Ad(ac, 1 - yy / 240f)); } }
             for (int side = -1; side <= 1; side += 2)
             {
                 float ph = w * side; var hip = new Vector2(side * 6, 44); var knee = air ? new Vector2(side * 10, 30) : new Vector2(side * 6 + ph * 10, 24 + MathF.Abs(ph) * 4); var foot = air ? new Vector2(side * 14, 8) : new Vector2(side * 6 + ph * 20, Math.Max(0, ph) * 7);
@@ -320,55 +336,67 @@ namespace Kadaya
         void World3D()
         {
             Scenery3(); Ground3(); Plats3(); Spikes3(); Checks3(); Gate3(); Souls3();
-            foreach (var k in clones) Reaper3D(k.X, G, k.F, Cl(k.L, 0, .7f), k.T, k.Mv * 300 * k.F, false, k.At >= 0 ? k.At / .28f : -1, 0, false, CY);
+            foreach (var k in clones) Reaper3D(k.X, G, k.Z, 1, Cl(k.L, 0, .7f), k.T, k.Mv * 300, false, k.At >= 0 ? k.At / .28f : -1, 0, false, CY, 1, k.Yaw);
             foreach (var e in en) if (e.X > cam - 500 && e.X < cam + W + 500) Foe3D(e);
             if (!P.Dead && !(P.Inv > 0 && (int)(t * 30) % 2 == 0))
             {
                 float atp = P.Atk > 0 ? P.AtkT / (P.Cb == 2 ? .42f : .28f) : -1;
-                Reaper3D(P.X, P.Y, P.F, P.Dash > 0 ? .35f : 1f, t, P.Vx, !P.Ground, atp, P.Cb, P.Chg > 0, PU);
+                Reaper3D(P.X, P.Y, P.Z, 1, P.Dash > 0 ? .35f : 1f, t, P.Vx, !P.Ground, atp, P.Cb, P.Chg > 0, PU, 1, P.Yaw);
             }
-            if (ult > 0) Reaper3D(P.X, G + 40, 1, .5f, t, 0, false, Cl((1 - ult / 1.4f) * 1.3f, 0, 1), 0, false, VI, 3.8f);
+            if (ult > 0) Reaper3D(P.X, G + 40, P.Z, 1, .5f, t, 0, false, Cl((1 - ult / 1.4f) * 1.3f, 0, 1), 0, false, VI, 3.8f, P.Yaw);
             Foreground3(); GatePortal3();
         }
 
-        // ---------- 2D effects drawn over the 3D scene, aligned to the z=0 lane ----------
+        // ---------- screen-space effects projected from the 3D scene ----------
         void Overlay()
         {
             var mp = MoonScr();
-            sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
+            sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, Matrix.CreateScale(renderScale));
             for (int k = 0; k < 7; k++) Tri(mp.X + (k - 3) * 110, mp.Y + 360, 150 + (k % 3) * 50, 780, (k - 3) * .07f + MathF.Sin(t * .3f + k) * .02f, Ad(L.Th.Moon, .035f));
-            sb.End();
-            sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, OverlayM());
             foreach (var g in glows) Glow(g.X, g.Y, g.R, g.C);
             foreach (var e in en)
             {
                 if (e.X < cam - 300 || e.X > cam + W + 300) continue;
-                if (e.St == 1) { Glow(e.X, e.Y - 150 * e.S, 55, Ad(RD, .9f)); Txt("!", e.X - 8, e.Y - 195 * e.S, 46, RD, 0); }
-                if (!e.Boss && e.Hp < e.Mh && e.Aggro) { Box(e.X, e.Y - 150 * e.S, 48, 5, 0, Color.Black * .55f); Box(e.X - 24 + 24 * e.Hp / e.Mh, e.Y - 150 * e.S, 48 * e.Hp / e.Mh, 5, 0, RD); }
+                var top = ScreenAt(e.X, G - e.Y + 150 * e.S, e.Z);
+                if (e.St == 1) { Glow(top.X, top.Y + 14, 55, Ad(RD, .9f)); Txt("!", top.X - 8, top.Y - 12, 46, RD, 0); }
+                if (!e.Boss && e.Hp < e.Mh && e.Aggro) { Box(top.X, top.Y, 48, 5, 0, Color.Black * .55f); Box(top.X - 24 + 24 * e.Hp / e.Mh, top.Y, 48 * e.Hp / e.Mh, 5, 0, RD); }
             }
-            if (P.Chg > 0) { float r = 14 + P.Chg * 26, ox = P.X + P.F * 50, oy = P.Y - 76; Glow(ox, oy, r * 3, Ad(CY, .9f)); Glow(ox, oy, r * 1.6f, Ad(WH, 1)); for (int i = 0; i < 3; i++) Cres(ox, oy, r * (.7f + i * .3f), r * (.7f + i * .3f), t * 16 + i * 2.1f, false, Ad(WH, .8f)); }
             foreach (var p in proj) DrawProj(p);
-            DrawFx(); sb.End();
-            sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
+            DrawFx();
             for (int i = 0; i < 120; i++) { bool a = i % 4 != 0; Glow(amb[i, 0], amb[i, 1], amb[i, 4] * (a ? 3 : 2), Ad(L.Th.Style == 0 ? new Color(200, 255, 120) : L.Th.Style == 1 ? new Color(150, 220, 255) : new Color(255, 150, 50), a ? .6f : .35f)); }
             sb.End();
         }
 
         protected override void Draw(GameTime gt)
         {
-            cam += (Cl(P.X - W * .4f + P.F * 120 + P.Vx * .12f, 0, Math.Max(0, L.GateX + 400 - W)) - cam) * .08f; camY += (Cl(P.Y - 440, -260, 0) - camY) * .06f;
+            var ms = Mouse.GetState();
+            if (ms.RightButton == ButtonState.Pressed)
+            {
+                if (cameraDragging) { var delta = ms.Position - cameraMouse; camYaw -= delta.X * .006f; camPitch = Cl(camPitch + delta.Y * .004f, -.12f, .72f); }
+                cameraDragging = true; cameraMouse = ms.Position;
+            }
+            else cameraDragging = false;
+            int wheel = ms.ScrollWheelValue;
+            if (wheel != cameraWheel)
+            {
+                camDistance = Cl(camDistance - (wheel - cameraWheel) * .45f, 540, 1500); cameraWheel = wheel;
+            }
+            cam += (Cl(P.X - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)) - cam) * .08f; camZ += (P.Z - camZ) * .08f; camY += (Cl(P.Y - 500, -220, 0) - camY) * .06f;
             float sx = Rf(-1, 1) * shake, sy = Rf(-1, 1) * shake;
             SetCam(sx, sy); Lighting();
-            GraphicsDevice.SetRenderTarget(rt); GraphicsDevice.Clear(Color.Black);
-            Backdrop();
+            GraphicsDevice.SetRenderTarget(rt); GraphicsDevice.Viewport = new Viewport(0, 0, rt.Width, rt.Height); GraphicsDevice.Clear(Color.Black);
+            sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, Matrix.CreateScale(renderScale));
+            for (int i = 0; i < 56; i++) { float u = i / 55f; Color c = u < .6f ? Color.Lerp(L.Th.Sky0, L.Th.Sky1, u / .6f) : Color.Lerp(L.Th.Sky1, L.Th.Sky2, (u - .6f) / .4f); Box(W / 2, i * (H / 56f) + H / 112f, W, H / 56f + 1, 0, c); }
+            if (L.Th.Style != 2) for (int i = 0; i < 140; i++) { float a = .3f + .7f * MathF.Abs(MathF.Sin(t * 1.4f + stars[i, 3])); Box((stars[i, 0] - cam * .02f + W * 3) % W, stars[i, 1] * .8f, stars[i, 2], stars[i, 2], 0, Ad(WH, a * .8f)); }
+            var mp = MoonScr(); Glow(mp.X, mp.Y, 760, Ad(L.Th.Moon, .4f)); Glow(mp.X, mp.Y, 340, Ad(L.Th.Moon, .45f)); sb.End();
             GraphicsDevice.Clear(ClearOptions.DepthBuffer, Color.Black, 1f, 0);
             GraphicsDevice.DepthStencilState = DepthStencilState.Default; GraphicsDevice.RasterizerState = RasterizerState.CullNone; GraphicsDevice.BlendState = BlendState.AlphaBlend; GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
             glows.Clear(); World3D();
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
             Overlay();
-            if (ult > 0) { sb.Begin(); sb.Draw(px, new Rectangle(0, 0, W, H), new Color(10, 0, 25) * (.55f * Math.Min(1, ult))); sb.End(); }
-            GraphicsDevice.SetRenderTarget(small); sb.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp); sb.Draw(rt, new Rectangle(0, 0, 320, 180), WH); sb.End();
-            GraphicsDevice.SetRenderTarget(null); GraphicsDevice.Clear(Color.Black);
+            if (ult > 0) { sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, Matrix.CreateScale(renderScale)); sb.Draw(px, new Rectangle(0, 0, W, H), new Color(10, 0, 25) * (.55f * Math.Min(1, ult))); sb.End(); }
+            GraphicsDevice.SetRenderTarget(small); GraphicsDevice.Viewport = new Viewport(0, 0, small.Width, small.Height); sb.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp); sb.Draw(rt, new Rectangle(0, 0, small.Width, small.Height), WH); sb.End();
+            GraphicsDevice.SetRenderTarget(null); GraphicsDevice.Viewport = GraphicsDevice.PresentationParameters.Bounds; GraphicsDevice.Clear(Color.Black);
             var pp = GraphicsDevice.PresentationParameters; float scl = Math.Min(pp.BackBufferWidth / (float)W, pp.BackBufferHeight / (float)H);
             var m = Matrix.CreateScale(scl) * Matrix.CreateTranslation((pp.BackBufferWidth - W * scl) / 2, (pp.BackBufferHeight - H * scl) / 2, 0);
             sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, m);
@@ -385,8 +413,9 @@ namespace Kadaya
                 Txt("THE GRIM REAPER", W / 2, 290, 44, new Color(255, 106, 128), 1, RD);
                 if ((int)(t * 1.6f) % 2 == 0) Txt(lv > 0 ? "ENTER  -  CONTINUE  (LEVEL " + (lv + 1) + ")" : "ENTER  -  START", W / 2, 370, 38, WH, 1);
                 Txt("N  -  NEW GAME", W / 2, 425, 24, new Color(180, 160, 220), 1);
-                Txt("A/D MOVE   W/SPACE JUMP x2   SHIFT SHADOW STEP   J SCYTHE COMBO   K KUNAI", W / 2, H - 120, 22, new Color(207, 192, 255), 1, PU);
-                Txt("HOLD L SOUL RASENGAN   E SHADOW CLONES   Q DEATH'S ECLIPSE   F11 FULLSCREEN", W / 2, H - 82, 22, new Color(207, 192, 255), 1, PU);
+                Txt("WASD MOVE   SPACE JUMP   LEFT CLICK SCYTHE   SHIFT DODGE   E SHADOW CLONES", W / 2, H - 120, 22, new Color(207, 192, 255), 1, PU);
+                Txt("RIGHT MOUSE DRAG CAMERA   MOUSE WHEEL ZOOM   F7 RESET CAMERA   F11 FULLSCREEN", W / 2, H - 82, 20, new Color(207, 192, 255), 1, PU);
+                Txt("F6 RENDER QUALITY", W / 2, H - 48, 18, new Color(207, 192, 255), 1, PU);
             }
             if (state == "dead") { Box(W / 2, H / 2, W, H, 0, new Color(20, 0, 10) * .65f); Txt("YOU HAVE BEEN REAPED", W / 2, 200, 84, RD, 1); Txt("LEVEL " + (lv + 1) + "     SOULS " + kills, W / 2, 320, 38, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RISE AGAIN FROM THE LAST SHRINE", W / 2, 400, 32, VI, 1); }
             if (state == "win") { Box(W / 2, H / 2, W, H, 0, new Color(10, 0, 20) * .6f); Txt("LEVEL " + (lv + 1) + " COMPLETE", W / 2, 190, 86, new Color(255, 220, 120), 1, OR); Txt("SOULS REAPED  " + kills, W / 2, 310, 38, WH, 1); if (winT > 1 && (int)(t * 1.6f) % 2 == 0) Txt(lv >= 2 ? "ENTER  -  FINISH" : "ENTER  -  NEXT LEVEL", W / 2, 390, 34, VI, 1); }
@@ -395,3 +424,4 @@ namespace Kadaya
         }
     }
 }
+

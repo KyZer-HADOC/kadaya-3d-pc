@@ -23,7 +23,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Publish game (self-contained, win-x64)
-        run: dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -o publish
+        run: dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
@@ -42,3 +42,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: output/setup.exe
+

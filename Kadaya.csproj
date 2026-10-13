@@ -6,6 +6,12 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Kadaya</AssemblyName>
     <RootNamespace>Kadaya</RootNamespace>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.1.303" />
@@ -15,3 +21,4 @@
     <MonoGameContentReference Include="Content\Content.mgcb" />
   </ItemGroup>
 </Project>
+

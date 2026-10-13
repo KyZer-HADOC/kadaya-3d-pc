@@ -5,10 +5,19 @@ Perspective 3D camera, lit + fogged scenery built from primitive shapes, bosses,
 Run left to right through each level, cross pits, dodge spikes, cut down ninja / samurai / archers,
 defeat the boss, step through the Soul Gate. Die and you restart from the last shrine of the SAME level (saved).
 
+## Camera and quality
+Hold the right mouse button and drag to orbit the 3D camera. Use the mouse wheel to zoom.
+Press F7 to reset the camera, or F6 to cycle render quality from 100% to 125% and 150%.
+
 ## Run
 1. Install the .NET 8 SDK: https://dotnet.microsoft.com/download
 2. In this folder: `dotnet run`
 
+## Windows installer
+Every push to `main` builds `setup.exe` with GitHub Actions. Download it from the latest successful `Build KADAYA setup.exe` run under **Actions > Artifacts > KADAYA-setup**.
+
 ## Controls
-A/D move | W/Space jump (x2) | Shift shadow step | J scythe combo | K soul kunai
-Hold L Soul Rasengan | E Shadow Clone Jutsu | Q Death's Eclipse | Enter confirm | N new game | F11 fullscreen | Esc quit
+W/A/S/D move in the camera direction | Space jump (x2) | Left mouse button scythe combo
+Shift dodge | E shadow clones | Right mouse button + drag orbit camera | Mouse wheel zoom
+Enter confirm / continue | N new game | F6 render quality | F7 reset camera | F11 fullscreen | Esc quit
+
