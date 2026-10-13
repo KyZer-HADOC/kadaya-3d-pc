@@ -101,7 +101,7 @@ namespace Kadaya
         { float dx = x2 - x1, dy = y2 - y1, len = Math.Max(.01f, MathF.Sqrt(dx * dx + dy * dy)); Shape(m, Matrix.CreateScale(w, len, dz) * Matrix.CreateRotationZ(MathF.Atan2(-dx, dy)) * Matrix.CreateTranslation((x1 + x2) / 2, (y1 + y2) / 2, z), c, em); }
 
         // ---------- rigs (characters built from shapes) ----------
-        Rig MkRig(float X, float Y, float Z, float s, float yaw) => new Rig { S = s, R = Matrix.CreateScale(s) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(X, G - Y, Z) };
+        Rig MkRig(float X, float Y, float Z, float s, float yaw) => new Rig { S = s, R = Matrix.CreateScale(s) * Matrix.CreateRotationY(-yaw) * Matrix.CreateTranslation(X, G - Y, Z) };
         void Pt(Rig r, Mesh m, float x, float y, float z, float sx, float sy, float sz, float rz, Color c, Color? em = null, float al = 1) => Shape(m, Matrix.CreateScale(sx, sy, sz) * Matrix.CreateRotationZ(rz) * Matrix.CreateTranslation(x, y, z) * r.R, c, em, al);
         void Bm(Rig r, Mesh m, Vector2 a, Vector2 b, float z, float w, float dz, Color c, Color? em = null, float al = 1)
         { var d = b - a; float len = Math.Max(.01f, d.Length()); var mid = (a + b) / 2; Shape(m, Matrix.CreateScale(w, len, dz) * Matrix.CreateRotationZ(MathF.Atan2(-d.X, d.Y)) * Matrix.CreateTranslation(mid.X, mid.Y, z) * r.R, c, em, al); }

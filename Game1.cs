@@ -13,7 +13,7 @@ namespace Kadaya
     class Clone { public float X, Z, Yaw, L, Cd, At = -1, T, Mv; public int F; }
     class Part { public float X, Y, Z, Vx, Vy, Vz, L, M, Sz, G; public Color C; public bool Dk; }
     class Fx { public string K; public float X, Y, Z, R, L, M, A; public int F; public Color C; public bool E; }
-    class Trl { public Vector2 A, B; public float Z, L; public bool Brk; }
+    class Trl { public Vector3 A, B; public float L; public bool Brk; }
     class Pl { public float X, Y, Z, Vx, Vy, Vz, Yaw, Hp, Mh = 100, En, CbT, Atk, AtkT, Inv, Dash, Dcd, Chg, Kcd, Coy; public int F, J, Cb; public bool Hit, Dead, Run, Ground; }
 
     public partial class Game1 : Game
@@ -263,8 +263,8 @@ namespace Kadaya
                 {
                     float dur = P.Cb == 2 ? .42f : .28f; P.AtkT += dt; P.Atk -= dt; float atp = P.AtkT / dur;
                     var pts = ScytheGeom(P.X, P.Y, P.F, 1, ScytheAng(atp, P.Cb, false, false, false, t), atp, out _, out _, out _);
-                    trail.Add(new Trl { A = pts[6], B = pts[12], Z = P.Z, L = .3f, Brk = P.AtkT <= dt * 1.5f });
-                    if (rnd.NextDouble() < .8) pt.Add(new Part { X = pts[12].X, Y = pts[12].Y, Z = P.Z, Vx = Rf(-40, 40), Vy = Rf(-80, -20), L = .5f, M = .5f, Sz = 5, C = P.Cb == 2 ? VI : CY, G = -60 });
+                    trail.Add(new Trl { A = ScythePoint(pts[6]), B = ScythePoint(pts[12]), L = .3f, Brk = P.AtkT <= dt * 1.5f });
+                    if (rnd.NextDouble() < .8) { var spark = ScythePoint(pts[12]); pt.Add(new Part { X = spark.X, Y = spark.Y, Z = spark.Z, Vz = Rf(-40, 40), Vx = Rf(-40, 40), Vy = Rf(-80, -20), L = .5f, M = .5f, Sz = 5, C = P.Cb == 2 ? VI : CY, G = -60 }); }
                     if (P.Hit && P.AtkT > (P.Cb == 2 ? .17f : .11f)) { P.Hit = false; SlashHit(); }
                 }
                 if (mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released && P.Dash <= 0 && (P.Atk <= 0 || P.AtkT > .18f)) { P.Cb = P.CbT > 0 ? (P.Cb + 1) % 3 : 0; P.Atk = P.Cb == 2 ? .42f : .28f; P.AtkT = 0; P.Hit = true; P.CbT = .75f; }

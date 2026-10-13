@@ -50,6 +50,11 @@ namespace Kadaya
             for (int i = 0; i < 13; i++) { float ph = i / 12f * 2.0f, a = Rb * MathF.Sin(ph), b = Rb * (1 - MathF.Cos(ph)) * .9f; pts[i] = Lc(p0x + nx * a - ca * b, p0y + ny * a - sa * b); }
             return pts;
         }
+        Vector3 ScythePoint(Vector2 p)
+        {
+            float localX = (p.X - P.X) * P.F;
+            return new Vector3(P.X + MathF.Cos(P.Yaw) * localX, p.Y, P.Z + MathF.Sin(P.Yaw) * localX);
+        }
         // ---------- projectiles & effects ----------
         void DrawProj(Proj p)
         {
@@ -63,7 +68,7 @@ namespace Kadaya
             if (p.K == "ras") { float r = p.R; Glow(sx, sy, r * 3, Ad(CY, .9f)); Glow(sx, sy, r * 1.6f, Ad(WH, 1)); for (int i = 0; i < 3; i++) Cres(sx, sy, r * (.7f + i * .25f), r * (.7f + i * .25f), t * 14 + i * 2.1f, false, Ad(WH, .8f)); }
             else if (p.K == "wave") { Tri(sx, sy - 40, 64, 100, 0, Ad(new Color(255, 64, 32), .9f)); Glow(sx, sy - 30, 100, Ad(new Color(255, 64, 32), .6f)); Tri(sx, sy - 30, 28, 60, 0, Ad(WH, .6f)); }
             else if (p.K == "orb") { Glow(sx, sy, 60, Ad(VI, .9f)); Circ(sx, sy, 8, new Color(240, 220, 255)); }
-            else if (p.K == "arrow") { float a = MathF.Atan2(p.Vy, p.Vx); Ln(sx - MathF.Cos(a) * 28, sy - MathF.Sin(a) * 28, sx, sy, 3, new Color(220, 200, 160)); Glow(sx, sy, 34, Ad(OR, .95f)); Glow(sx, sy, 14, Ad(WH, 1)); }
+            else if (p.K == "arrow") { var tail = ScreenAt(p.X - p.Vx * .045f, G - (p.Y - p.Vy * .045f), p.Z - p.Vz * .045f); Ln(tail, screen, 3, new Color(220, 200, 160)); Glow(sx, sy, 34, Ad(OR, .95f)); Glow(sx, sy, 14, Ad(WH, 1)); }
             else if (p.Own) { float a = MathF.Atan2(p.Vy, p.Vx); Ln(sx - MathF.Cos(a) * 14, sy - MathF.Sin(a) * 14, sx + MathF.Cos(a) * 16, sy + MathF.Sin(a) * 16, 5, new Color(232, 255, 255)); Glow(sx, sy, 30, Ad(CY, .9f)); }
         }
         void DrawFx()
@@ -72,7 +77,7 @@ namespace Kadaya
             for (int i = 1; i < trail.Count; i++)
             {
                 var q = trail[i]; if (q.Brk) continue; var q0 = trail[i - 1]; float k = Cl(q.L / .3f, 0, 1); Color c = Color.Lerp(CY, VI, .35f);
-                Ln(ScreenAt(q0.B.X, G - q0.B.Y, q0.Z), ScreenAt(q.B.X, G - q.B.Y, q.Z), 22 * k, Ad(c, .55f * k)); Ln(ScreenAt(q0.B.X, G - q0.B.Y, q0.Z), ScreenAt(q.B.X, G - q.B.Y, q.Z), 8 * k, Ad(WH, .9f * k)); Ln(ScreenAt(q0.A.X, G - q0.A.Y, q0.Z), ScreenAt(q.A.X, G - q.A.Y, q.Z), 12 * k, Ad(c, .3f * k));
+                Ln(ScreenAt(q0.B.X, G - q0.B.Y, q0.B.Z), ScreenAt(q.B.X, G - q.B.Y, q.B.Z), 22 * k, Ad(c, .55f * k)); Ln(ScreenAt(q0.B.X, G - q0.B.Y, q0.B.Z), ScreenAt(q.B.X, G - q.B.Y, q.B.Z), 8 * k, Ad(WH, .9f * k)); Ln(ScreenAt(q0.A.X, G - q0.A.Y, q0.A.Z), ScreenAt(q.A.X, G - q.A.Y, q.A.Z), 12 * k, Ad(c, .3f * k));
             }
             foreach (var f in fx)
             {
