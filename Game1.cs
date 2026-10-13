@@ -230,8 +230,8 @@ namespace Kadaya
         {
             if (banT > 0) banT -= dt;
             float side = (Dn(Keys.D) ? 1 : 0) - (Dn(Keys.A) ? 1 : 0), forward = (Dn(Keys.W) ? 1 : 0) - (Dn(Keys.S) ? 1 : 0);
-            float fx = -MathF.Sin(camYaw), fz = -MathF.Cos(camYaw), rx = MathF.Cos(camYaw), rz = -MathF.Sin(camYaw);
-            float mx = rx * side + fx * forward, mz = rz * side + fz * forward, ml = MathF.Sqrt(mx * mx + mz * mz);
+            float fwdX = -MathF.Sin(camYaw), fz = -MathF.Cos(camYaw), rx = MathF.Cos(camYaw), rz = -MathF.Sin(camYaw);
+            float mx = rx * side + fwdX * forward, mz = rz * side + fz * forward, ml = MathF.Sqrt(mx * mx + mz * mz);
             if (ml > 1) { mx /= ml; mz /= ml; }
             if (!P.Dead)
             {

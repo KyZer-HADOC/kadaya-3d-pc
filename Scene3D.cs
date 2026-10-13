@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 namespace Kadaya
 {
@@ -396,8 +397,8 @@ namespace Kadaya
             Overlay();
             if (ult > 0) { sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, Matrix.CreateScale(renderScale)); sb.Draw(px, new Rectangle(0, 0, W, H), new Color(10, 0, 25) * (.55f * Math.Min(1, ult))); sb.End(); }
             GraphicsDevice.SetRenderTarget(small); GraphicsDevice.Viewport = new Viewport(0, 0, small.Width, small.Height); sb.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp); sb.Draw(rt, new Rectangle(0, 0, small.Width, small.Height), WH); sb.End();
-            GraphicsDevice.SetRenderTarget(null); GraphicsDevice.Viewport = GraphicsDevice.PresentationParameters.Bounds; GraphicsDevice.Clear(Color.Black);
-            var pp = GraphicsDevice.PresentationParameters; float scl = Math.Min(pp.BackBufferWidth / (float)W, pp.BackBufferHeight / (float)H);
+            GraphicsDevice.SetRenderTarget(null); var pp = GraphicsDevice.PresentationParameters; GraphicsDevice.Viewport = new Viewport(0, 0, pp.BackBufferWidth, pp.BackBufferHeight); GraphicsDevice.Clear(Color.Black);
+            float scl = Math.Min(pp.BackBufferWidth / (float)W, pp.BackBufferHeight / (float)H);
             var m = Matrix.CreateScale(scl) * Matrix.CreateTranslation((pp.BackBufferWidth - W * scl) / 2, (pp.BackBufferHeight - H * scl) / 2, 0);
             sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, m);
             sb.Draw(rt, new Rectangle(0, 0, W, H), WH); sb.Draw(small, new Rectangle(0, 0, W, H), new Color(110, 110, 110, 0));
