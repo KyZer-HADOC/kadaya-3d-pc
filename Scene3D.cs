@@ -394,7 +394,7 @@ namespace Kadaya
             var bounds = Window.ClientBounds;
             var ms = Mouse.GetState();
             bool mouseLook = state == "play" && IsActive && bounds.Width > 0 && bounds.Height > 0;
-            Mouse.IsVisible = !mouseLook;
+            IsMouseVisible = !mouseLook;
             if (mouseLook)
             {
                 int centerX = bounds.Width / 2, centerY = bounds.Height / 2;
