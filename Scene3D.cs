@@ -11,7 +11,7 @@ namespace Kadaya
 
     public partial class Game1
     {
-        BasicEffect be; Mesh mCube, mSph, mCyl, mCone, mPyr, mFrus; Matrix view, proj; float specK;
+        BasicEffect be; Mesh mCube, mSph, mCyl, mCone, mPyr, mFrus; Matrix view, projM; float specK;
         List<GlowReq> glows = new List<GlowReq>();
         static Color Em(Color c, float k) => new Color(c.R * k / 255f, c.G * k / 255f, c.B * k / 255f);
 
@@ -68,8 +68,8 @@ namespace Kadaya
 
         // ---------- camera, light, draw helpers ----------
         Vector3 MoonPos() => new Vector3(cam + W / 2f + 340, 560, -3300);
-        Vector2 Sc(float gx, float gy, float gz = 0) { var vp = new Viewport(0, 0, W, H); var p = vp.Project(new Vector3(gx, G - gy, gz), proj, view, Matrix.Identity); return new Vector2(p.X, p.Y); }
-        Vector2 MoonScr() { var vp = new Viewport(0, 0, W, H); var p = vp.Project(MoonPos(), proj, view, Matrix.Identity); return new Vector2(p.X, p.Y); }
+        Vector2 Sc(float gx, float gy, float gz = 0) { var vp = new Viewport(0, 0, W, H); var p = vp.Project(new Vector3(gx, G - gy, gz), projM, view, Matrix.Identity); return new Vector2(p.X, p.Y); }
+        Vector2 MoonScr() { var vp = new Viewport(0, 0, W, H); var p = vp.Project(MoonPos(), projM, view, Matrix.Identity); return new Vector2(p.X, p.Y); }
         Matrix OverlayM()
         {
             float rx = P.X, ry = P.Y - 60; var p0 = Sc(rx, ry); var ax = Sc(rx + 1, ry) - p0; var ay = Sc(rx, ry + 1) - p0; var m = Matrix.Identity;
@@ -78,8 +78,8 @@ namespace Kadaya
         void SetCam(float sx, float sy)
         {
             var tgt = new Vector3(cam + W / 2f, G - (camY + H / 2f), 0); var pos = tgt + new Vector3(MathF.Sin(t * .2f) * 8 + sx, 170 - sy, 880);
-            view = Matrix.CreateLookAt(pos, tgt + new Vector3(0, -20, 0), Vector3.Up); proj = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, W / (float)H, 50, 12000);
-            be.View = view; be.Projection = proj;
+            view = Matrix.CreateLookAt(pos, tgt + new Vector3(0, -20, 0), Vector3.Up); projM = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, W / (float)H, 50, 12000);
+            be.View = view; be.Projection = projM;
         }
         void Lighting()
         {
