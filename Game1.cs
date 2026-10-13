@@ -263,8 +263,9 @@ namespace Kadaya
                 {
                     float dur = P.Cb == 2 ? .42f : .28f; P.AtkT += dt; P.Atk -= dt; float atp = P.AtkT / dur;
                     var pts = ScytheGeom(P.X, P.Y, P.F, 1, ScytheAng(atp, P.Cb, false, false, false, t), atp, out _, out _, out _);
-                    trail.Add(new Trl { A = ScythePoint(pts[6]), B = ScythePoint(pts[12]), L = .3f, Brk = P.AtkT <= dt * 1.5f });
-                    if (rnd.NextDouble() < .8) { var spark = ScythePoint(pts[12]); pt.Add(new Part { X = spark.X, Y = spark.Y, Z = spark.Z, Vz = Rf(-40, 40), Vx = Rf(-40, 40), Vy = Rf(-80, -20), L = .5f, M = .5f, Sz = 5, C = P.Cb == 2 ? VI : CY, G = -60 }); }
+                    float bob = (Math.Abs(P.Vx) > 60 && P.Ground ? MathF.Abs(MathF.Sin(t * 13)) * 4 : MathF.Sin(t * 2.2f) * 3) + 4;
+                    trail.Add(new Trl { A = ScythePoint(pts[6], bob), B = ScythePoint(pts[12], bob), L = .3f, Brk = P.AtkT <= dt * 1.5f });
+                    if (rnd.NextDouble() < .8) { var spark = ScythePoint(pts[12], bob); pt.Add(new Part { X = spark.X, Y = spark.Y, Z = spark.Z, Vz = Rf(-40, 40), Vx = Rf(-40, 40), Vy = Rf(-80, -20), L = .5f, M = .5f, Sz = 5, C = P.Cb == 2 ? VI : CY, G = -60 }); }
                     if (P.Hit && P.AtkT > (P.Cb == 2 ? .17f : .11f)) { P.Hit = false; SlashHit(); }
                 }
                 if (mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released && P.Dash <= 0 && (P.Atk <= 0 || P.AtkT > .18f)) { P.Cb = P.CbT > 0 ? (P.Cb + 1) % 3 : 0; P.Atk = P.Cb == 2 ? .42f : .28f; P.AtkT = 0; P.Hit = true; P.CbT = .75f; }

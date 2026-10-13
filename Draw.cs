@@ -50,10 +50,10 @@ namespace Kadaya
             for (int i = 0; i < 13; i++) { float ph = i / 12f * 2.0f, a = Rb * MathF.Sin(ph), b = Rb * (1 - MathF.Cos(ph)) * .9f; pts[i] = Lc(p0x + nx * a - ca * b, p0y + ny * a - sa * b); }
             return pts;
         }
-        Vector3 ScythePoint(Vector2 p)
+        Vector3 ScythePoint(Vector2 p, float bob)
         {
             float localX = (p.X - P.X) * P.F;
-            return new Vector3(P.X + MathF.Cos(P.Yaw) * localX, p.Y, P.Z + MathF.Sin(P.Yaw) * localX);
+            return new Vector3(P.X + MathF.Cos(P.Yaw) * localX, p.Y - bob, P.Z + MathF.Sin(P.Yaw) * localX);
         }
         // ---------- projectiles & effects ----------
         void DrawProj(Proj p)
