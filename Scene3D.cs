@@ -193,57 +193,67 @@ namespace Kadaya
         void Souls3() { foreach (var s in L.Souls) { if (s.Got || s.X < cam - 300 || s.X > cam + W + 300) continue; float by = G - s.Y + MathF.Sin(t * 3 + s.X) * 8; Shape(mSph, Mx(s.X, by, 110, 18, 18, 18), new Color(240, 220, 255), Em(VI, 1f)); Shape(mCone, Mx(s.X - 4, by - 20, 110, 12, 28, 12, 0, MathF.PI + MathF.Sin(t * 4) * .3f), VI, Em(VI, .8f)); GlowAt(s.X, by, 110, 60, Ad(VI, .8f)); } }
 
         // ---------- background scenery in true 3D depth ----------
-        void BgLayer(float z, float sp, int kind, float sc, Color col, float jz)
+        void BgLayer(float z, float sp, float sc, Color col, float jz)
         {
             float hw = (880 - z) * .7364f + 300, cx = cam + W / 2f; int i0 = (int)MathF.Floor((cx - hw) / sp), i1 = (int)MathF.Ceiling((cx + hw) / sp);
             for (int i = i0; i <= i1; i++)
             {
                 float h = Hs(i * 1.7f + z * .01f), x = i * sp + (h - .5f) * sp * .6f, zz = z + (Hs(i * 5.3f) - .5f) * jz;
-                if (kind == 0) Bamboo3(x, zz, sc, col, h); else if (kind == 1) Grave3(x, zz, sc, col, h); else Temple3(x, zz, sc, col, h);
+                RockCluster3(x, zz, sc, col, h, i);
             }
         }
-        void Bamboo3(float x, float zz, float sc, Color col, float h)
+        void RockCluster3(float x, float zz, float sc, Color col, float h, int seed)
         {
-            for (int j = 0; j < 2; j++)
+            float coreH = (180 + h * 170) * sc, coreW = (240 + Hs(seed * 3.1f) * 100) * sc;
+            Color shadow = Color.Lerp(col, Color.Black, .36f), light = Color.Lerp(col, L.Th.Moon, .12f);
+            Shape(mFrus, Mx(x, coreH * .31f, zz, coreW, coreH * .7f, coreW * .72f), shadow);
+            for (int j = -2; j <= 2; j++)
             {
-                float bx = x + j * 26 * sc, hh = (450 + Hs(h * 10 + j) * 300) * sc, sw = MathF.Sin(t * .8f + bx * .01f) * .02f; Shape(mCyl, Mx(bx, hh / 2, zz, 10 * sc, hh, 10 * sc, 0, sw), col);
-                for (float y = 70 * sc; y < hh; y += 85 * sc) Shape(mCyl, Mx(bx, y, zz, 14 * sc, 5 * sc, 14 * sc), Color.Lerp(col, WH, .08f));
-                for (int l = 0; l < 4; l++) { float sd = l % 2 == 0 ? 1 : -1; Shape(mCone, Mx(bx + sd * 28 * sc, hh - l * 40 * sc, zz, 14 * sc, 80 * sc, 14 * sc, 0, -sd * 1.2f), col); }
+                float u = Hs(seed * 7.7f + j * 11.3f), side = j * 43 * sc;
+                float hh = (145 + u * 260) * sc, w = (112 + Hs(seed + j * 3.9f) * 80) * sc;
+                float rz = (Hs(seed * 2 + j) - .5f) * .28f, ry = (Hs(seed + j * 9.1f) - .5f) * .8f;
+                var mesh = j % 2 == 0 ? mPyr : mCone;
+                var stone = Color.Lerp(shadow, light, .2f + Hs(seed + j * 2.7f) * .36f);
+                Shape(mesh, Mx(x + side, hh * .48f, zz + (j % 2) * 42 * sc, w, hh, w * .82f, ry, rz), stone);
+                if (j == -1 || j == 2)
+                    Shape(mPyr, Mx(x + side * 1.3f, hh * .72f, zz + 10 * sc, w * .42f, hh * .58f, w * .48f, -ry, -rz * 1.4f), Color.Lerp(stone, col, .3f));
             }
-        }
-        void Grave3(float x, float zz, float sc, Color col, float h)
-        {
-            if (h < .34f) { Bx(x, 50 * sc, zz, 42 * sc, 100 * sc, 16 * sc, col); Shape(mSph, Mx(x, 100 * sc, zz, 42 * sc, 34 * sc, 16 * sc), col); }
-            else if (h < .6f) { Bx(x, 90 * sc, zz, 14 * sc, 180 * sc, 14 * sc, col); Bx(x, 130 * sc, zz, 80 * sc, 14 * sc, 14 * sc, col); }
-            else
+            for (int k = 0; k < 3; k++)
             {
-                Shape(mFrus, Mx(x, 130 * sc, zz, 24 * sc, 260 * sc, 24 * sc), col);
-                for (int b = 0; b < 5; b++) { float sd = b % 2 == 0 ? 1 : -1, y0 = (100 + b * 36) * sc; BeamXY(mCyl, x, y0, x + sd * (60 + b * 24) * sc, (170 + b * 50) * sc, zz, 6 * sc, 6 * sc, col); BeamXY(mCyl, x + sd * (60 + b * 24) * sc, (170 + b * 50) * sc, x + sd * (90 + b * 24) * sc, (160 + b * 60) * sc, zz, 3 * sc, 3 * sc, col); }
+                float by = (18 + k * 25) * sc, bw = (105 - k * 16) * sc;
+                Shape(mPyr, Mx(x + (k - 1) * 42 * sc, by, zz + (k - 1) * 26 * sc, bw, 28 * sc, bw * .62f, (k - 1) * .12f), Color.Lerp(shadow, light, .25f));
             }
-            Shape(mSph, Mx(x, 80 * sc, zz + 20, 14 * sc, 14 * sc, 14 * sc), Color.Black, Em(L.Th.Accent, .25f + .15f * MathF.Sin(t * 2 + x * .01f)));
-        }
-        void Temple3(float x, float zz, float sc, Color col, float h)
-        {
-            if (h < .5f)
-            {
-                for (int i = 0; i < 4; i++) { float w = (110 - i * 20) * sc, hh = 46 * sc; Bx(x, i * hh + hh * .35f, zz, w - 16 * sc, hh * .7f, w - 16 * sc, col); Shape(mPyr, Mx(x, i * hh + hh * .85f, zz, (w + 56 * sc) * 1.2f, hh * .55f, (w + 56 * sc) * 1.2f, MathF.PI / 4), col); Bx(x, i * hh + hh * .35f, zz + (w - 16 * sc) / 2, 14 * sc, 18 * sc, 2, col, Em(L.Th.Accent, .9f)); }
-                Bx(x, 4 * 46 * sc + 17 * sc, zz, 4 * sc, 34 * sc, 4 * sc, col);
-            }
-            else { Shape(mCyl, Mx(x - 70 * sc, 110 * sc, zz, 16 * sc, 220 * sc, 16 * sc), col); Shape(mCyl, Mx(x + 70 * sc, 110 * sc, zz, 16 * sc, 220 * sc, 16 * sc), col); Bx(x, 215 * sc, zz, 210 * sc, 18 * sc, 18 * sc, col, Em(L.Th.Accent, .15f)); Bx(x, 180 * sc, zz, 160 * sc, 9 * sc, 12 * sc, col); }
         }
         void Scenery3()
         {
             var th = L.Th; float cx = cam + W / 2f;
             Shape(mSph, Mx(MoonPos().X, MoonPos().Y, MoonPos().Z, 420, 420, 420), Color.Lerp(th.Moon, Color.Black, .5f), Em(th.Moon, .85f));
-            for (int i = (int)MathF.Floor((cx - 4200) / 1100); i <= (int)MathF.Ceiling((cx + 4200) / 1100); i++) { float h = Hs(i * 3.3f), x = i * 1100 + (h - .5f) * 500, hh = 900 + Hs(i * 7.7f) * 700; Shape(mCone, Mx(x, hh / 2 - 60, -2700, 1500, hh, 1500), th.Far); }
-            BgLayer(-1500, 380, th.Style, .85f, Color.Lerp(th.Far, th.Mid, .6f), 500); BgLayer(-650, 330, th.Style, 1.05f, th.Mid, 300); BgLayer(-230, 520, th.Style, 1.4f, th.Near, 120);
+            for (int i = (int)MathF.Floor((cx - 4200) / 1100); i <= (int)MathF.Ceiling((cx + 4200) / 1100); i++)
+            {
+                float h = Hs(i * 3.3f), x = i * 1100 + (h - .5f) * 500, hh = 900 + Hs(i * 7.7f) * 700;
+                Shape(mPyr, Mx(x, hh / 2 - 60, -2700, 1500, hh, 1500, 0, (Hs(i * 9.4f) - .5f) * .2f), th.Far);
+                Shape(mCone, Mx(x - 560, hh * .32f, -2650, 940, hh * .66f, 1050), Color.Lerp(th.Far, th.Mid, .18f));
+                Shape(mCone, Mx(x + 600, hh * .27f, -2740, 1020, hh * .56f, 1140), Color.Lerp(th.Far, Color.Black, .2f));
+            }
+            BgLayer(-1500, 380, .85f, Color.Lerp(th.Far, th.Mid, .6f), 500); BgLayer(-650, 330, 1.05f, th.Mid, 300); BgLayer(-230, 520, 1.4f, th.Near, 120);
         }
         void Foreground3()
         {
             Color b = new Color(1, 0, 3); float cx = cam + W / 2f, hw = (880 - 330) * .7364f + 260;
-            for (float x = (float)Math.Floor((cx - hw) / 45) * 45; x < cx + hw; x += 45) { float h = 40 + Hs(x) * 90, zz = 300 + Hs(x * 2.1f) * 120, sw = MathF.Sin(t * 1.4f + x * .03f) * .2f; Shape(mCone, Mx(x, h / 2 - 8, zz, 13, h, 13, 0, sw), b); }
+            for (float x = (float)Math.Floor((cx - hw) / 100) * 100; x < cx + hw; x += 100)
+            {
+                float h = 55 + Hs(x) * 110, zz = 300 + Hs(x * 2.1f) * 120;
+                Shape(mPyr, Mx(x, h * .42f - 8, zz, 95 + Hs(x * .8f) * 50, h, 115, 0, (Hs(x * .4f) - .5f) * .24f), b);
+                Shape(mCone, Mx(x + 42, h * .25f - 8, zz - 22, 54, h * .58f, 66, .3f, -.15f), Color.Lerp(b, L.Th.Near, .16f));
+            }
             float hw2 = (880 - 380) * .7364f + 320;
-            for (int i = (int)MathF.Floor((cx - hw2) / 1400); i <= (int)MathF.Ceiling((cx + hw2) / 1400); i++) { float x = i * 1400 + Hs(i * 9.1f) * 500; Shape(mCyl, Mx(x, 520, 380, 110 + Hs(i * 2.2f) * 70, 1200, 110), b); BeamXY(mCyl, x, 900, x + 180, 1000, 380, 16, 16, b); BeamXY(mCyl, x, 760, x - 160, 840, 380, 12, 12, b); }
+            for (int i = (int)MathF.Floor((cx - hw2) / 1400); i <= (int)MathF.Ceiling((cx + hw2) / 1400); i++)
+            {
+                float x = i * 1400 + Hs(i * 9.1f) * 500, h = 780 + Hs(i * 2.2f) * 360;
+                Shape(mFrus, Mx(x, h * .34f, 380, 360, h * .72f, 280, .15f, -.08f), b);
+                Shape(mPyr, Mx(x - 110, h * .54f, 345, 260, h, 250, -.2f, .1f), b);
+                Shape(mPyr, Mx(x + 145, h * .45f, 420, 290, h * .82f, 270, .24f, -.08f), b);
+            }
         }
 
         // ---------- THE GRIM REAPER (3D, built from shapes) ----------
@@ -263,6 +273,17 @@ namespace Kadaya
                 float ang = j * MathHelper.TwoPi / 10, len = 26 + Hs(j * 3.3f) * 36, sway = MathF.Sin(tt * 4 + j * .9f) * (5 + flow * .25f) + flow * .5f;
                 Pt(r, mCone, MathF.Cos(ang) * 40 + flow * .6f, bob + 10 - len / 2 + 6, MathF.Sin(ang) * 30, 11, len, 6, MathF.PI + sway * .03f, dk, Em(ti, .08f), a);
             }
+            Pt(r, mFrus, 0, bob + 70, 0, 54, 56, 34, 0, Color.Lerp(dk2, new Color(48, 42, 62), .5f), null, a);
+            Pt(r, mFrus, -27, bob + 87, 0, 24, 20, 34, -.08f, new Color(57, 48, 69), Em(ti, .12f), a);
+            Pt(r, mFrus, 27, bob + 87, 0, 24, 20, 34, .08f, new Color(57, 48, 69), Em(ti, .12f), a);
+            foreach (int side in new[] { -1, 1 })
+            {
+                Pt(r, mPyr, side * 31, bob + 92, 1, 11, 18, 15, 0, Color.Lerp(dk2, ti, .18f), Em(ti, .16f), a);
+                Pt(r, mFrus, side * 7, bob + 47, 13, 13, 18, 5, 0, Color.Lerp(dk2, new Color(68, 56, 80), .35f), null, a);
+            }
+            Bm(r, mCube, new Vector2(-18, bob + 88), new Vector2(18, bob + 59), 18, 4, 3, Color.Lerp(new Color(56, 48, 69), ti, .22f), Em(ti, .12f), a);
+            Pt(r, mCyl, 0, bob + 43, 0, 57, 7, 36, 0, new Color(35, 28, 44), Em(ti, .1f), a);
+            Pt(r, mCube, 0, bob + 43, 19, 13, 12, 5, 0, new Color(177, 146, 92), Em(OR, .25f), a);
             Pt(r, mSph, -2, bob + 108, 0, 54, 36, 42, 0, dk2, null, a); Pt(r, mSph, 4, bob + 132, 0, 46, 48, 44, 0, dk2, null, a); Pt(r, mCone, -22, bob + 124, 0, 26, 52, 26, 1.9f, dk2, Em(ti, .05f), a);
             Pt(r, mSph, 14, bob + 128, 5, 24, 30, 20, 0, Color.Black, null, a);
             foreach (float ez in new[] { 6f, -3f }) { Pt(r, mSph, 22, bob + 130, ez, 7, 7, 7, 0, eye, Em(eye, 1f), a); GlowG(r, 22, bob + 130, ez, 18, Ad(ti, a)); }
@@ -370,13 +391,23 @@ namespace Kadaya
 
         protected override void Draw(GameTime gt)
         {
+            var bounds = Window.ClientBounds;
             var ms = Mouse.GetState();
-            if (ms.RightButton == ButtonState.Pressed)
+            bool mouseLook = state == "play" && IsActive && bounds.Width > 0 && bounds.Height > 0;
+            Mouse.IsVisible = !mouseLook;
+            if (mouseLook)
             {
-                if (cameraDragging) { var delta = ms.Position - cameraMouse; camYaw -= delta.X * .006f; camPitch = Cl(camPitch + delta.Y * .004f, -.12f, .72f); }
-                cameraDragging = true; cameraMouse = ms.Position;
+                int centerX = bounds.Width / 2, centerY = bounds.Height / 2;
+                if (cameraCaptured)
+                {
+                    float scale = W / (float)bounds.Width;
+                    camYaw -= (ms.X - centerX) * scale * .0045f;
+                    camPitch = Cl(camPitch + (ms.Y - centerY) * scale * .0035f, -.12f, .72f);
+                }
+                cameraCaptured = true;
+                if (ms.X != centerX || ms.Y != centerY) Mouse.SetPosition(centerX, centerY);
             }
-            else cameraDragging = false;
+            else cameraCaptured = false;
             int wheel = ms.ScrollWheelValue;
             if (wheel != cameraWheel)
             {
@@ -414,8 +445,8 @@ namespace Kadaya
                 Txt("THE GRIM REAPER", W / 2, 290, 44, new Color(255, 106, 128), 1, RD);
                 if ((int)(t * 1.6f) % 2 == 0) Txt(lv > 0 ? "ENTER  -  CONTINUE  (LEVEL " + (lv + 1) + ")" : "ENTER  -  START", W / 2, 370, 38, WH, 1);
                 Txt("N  -  NEW GAME", W / 2, 425, 24, new Color(180, 160, 220), 1);
-                Txt("WASD MOVE   SPACE JUMP   LEFT CLICK SCYTHE   SHIFT DODGE   E SHADOW CLONES", W / 2, H - 120, 22, new Color(207, 192, 255), 1, PU);
-                Txt("RIGHT MOUSE DRAG CAMERA   MOUSE WHEEL ZOOM   F7 RESET CAMERA   F11 FULLSCREEN", W / 2, H - 82, 20, new Color(207, 192, 255), 1, PU);
+                Txt("WASD MOVE   SPACE JUMP   LEFT CLICK SCYTHE   SHIFT DODGE   E CLONES", W / 2, H - 120, 22, new Color(207, 192, 255), 1, PU);
+                Txt("MOVE MOUSE CAMERA   RIGHT CLICK RASENGAN   WHEEL ZOOM   F7 RESET", W / 2, H - 82, 20, new Color(207, 192, 255), 1, PU);
                 Txt("F6 RENDER QUALITY", W / 2, H - 48, 18, new Color(207, 192, 255), 1, PU);
             }
             if (state == "dead") { Box(W / 2, H / 2, W, H, 0, new Color(20, 0, 10) * .65f); Txt("YOU HAVE BEEN REAPED", W / 2, 200, 84, RD, 1); Txt("LEVEL " + (lv + 1) + "     SOULS " + kills, W / 2, 320, 38, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RISE AGAIN FROM THE LAST SHRINE", W / 2, 400, 32, VI, 1); }
@@ -425,4 +456,3 @@ namespace Kadaya
         }
     }
 }
-

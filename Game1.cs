@@ -24,11 +24,11 @@ namespace Kadaya
         GraphicsDeviceManager gdm; SpriteBatch sb; RenderTarget2D rt, small; Texture2D px, circ, glow, tri, cres, vig; SpriteFont font;
         static Random rnd = new Random();
         KeyboardState cur, prev;
-        Point cameraMouse; int cameraWheel;
+        int cameraWheel;
         MouseState mouseCur, mousePrev;
 
         string state = "title", banS = "";
-        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1; bool ultHit = true, bossDead, cameraDragging;
+        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1; bool ultHit = true, bossDead, cameraCaptured;
         int lv, kills; Level L; float checkX, checkZ = 110; bool[] lit;
         Pl P = new Pl();
         List<Foe> en = new List<Foe>(); List<Proj> proj = new List<Proj>(); List<Clone> clones = new List<Clone>();
@@ -269,6 +269,17 @@ namespace Kadaya
                     if (P.Hit && P.AtkT > (P.Cb == 2 ? .17f : .11f)) { P.Hit = false; SlashHit(); }
                 }
                 if (mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released && P.Dash <= 0 && (P.Atk <= 0 || P.AtkT > .18f)) { P.Cb = P.CbT > 0 ? (P.Cb + 1) % 3 : 0; P.Atk = P.Cb == 2 ? .42f : .28f; P.AtkT = 0; P.Hit = true; P.CbT = .75f; }
+                if (mouseCur.RightButton == ButtonState.Pressed && mousePrev.RightButton == ButtonState.Released && P.Kcd <= 0)
+                {
+                    if (P.En >= 35)
+                    {
+                        P.En -= 35; P.Kcd = 1.1f;
+                        float dx = MathF.Cos(P.Yaw), dz = MathF.Sin(P.Yaw);
+                        proj.Add(new Proj { K = "ras", Own = true, X = P.X + dx * 42, Y = P.Y - 76, Z = P.Z + dz * 42, Vx = dx * 650, Vy = 0, Vz = dz * 650, L = 1.25f, R = 34, Dmg = 56 });
+                        Burst(P.X + dx * 48, P.Y - 76, 24, CY, 360, 5, 0, .45f, P.Z + dz * 48); Sfx("ras", P.X);
+                    }
+                    else { banS = "NEED 35 SOUL ENERGY"; banT = 1.1f; }
+                }
                 if (Pr(Keys.E) && P.En >= 40)
                 {
                     P.En -= 40;
@@ -364,4 +375,3 @@ namespace Kadaya
         }
     }
 }
-
