@@ -1101,7 +1101,26 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                     pt.Add(new Part { X = p.X, Y = p.Y, Z = p.Z, Vx = Rf(-30, 30), Vy = Rf(-30, 30), L = .3f, M = .3f, Sz = p.K == "ras" ? p.R * .5f : 3, C = CY });
                     foreach (var e in en)
                         if (!e.Dead && p.L > 0 && DistXZ(p.X, p.Z, e.X, e.Z) < 26 * e.S + p.R && p.Y > e.Y - 125 * e.S && p.Y < e.Y + 10)
-                        { if (p.K == "ras") { Explode(p); p.Spent = true; } else HitE(e, p.Dmg, Sg(p.Vx) * 250); p.L = 0; }
+                        {
+                            if (p.K == "ras") { Explode(p); p.Spent = true; }
+                            else
+                            {
+                                HitE(e, p.Dmg, Sg(p.Vx) * 250);
+                                if (!e.Dead && p.K == "fire")
+                                {
+                                    e.BurnT = Math.Max(e.BurnT, 1.75f);
+                                    e.BurnDmg = Math.Max(e.BurnDmg, p.Dmg * .11f);
+                                    e.BurnCd = .35f;
+                                    Burst(e.X, e.Y - 60 * e.S, 10, new Color(255, 116, 38), 190, 4, -25, .45f, e.Z);
+                                }
+                                else if (!e.Dead && !e.Boss && (p.K == "water" || p.K == "lightning"))
+                                {
+                                    e.St = 3;
+                                    e.Tm = p.K == "lightning" ? .8f : .5f;
+                                }
+                            }
+                            p.L = 0;
+                        }
                 }
                 else
                 {
