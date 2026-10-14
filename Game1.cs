@@ -754,6 +754,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             L = LevelGen.Make(selectedMenuLevel); en = L.Foes;
             foreach (Foe foe in en) foe.Z = 110;
             P = new Pl { X = 250, Y = G, Z = 110, F = 1, Hp = 100, En = 50 };
+            lit = new bool[L.Checks.Count];
+            for (int i = 0; i < lit.Length; i++) lit[i] = L.Checks[i] <= P.X;
+            disabledSpikeIndices.Clear(); bossDead = false;
             cam = Cl(P.X - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)); camY = 0; camZ = P.Z;
             camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880;
         }
