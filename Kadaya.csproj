@@ -7,9 +7,9 @@
     <AssemblyName>Kadaya</AssemblyName>
     <ApplicationIcon>Content\UI\kadaya_icon.ico</ApplicationIcon>
     <RootNamespace>Kadaya</RootNamespace>
-    <PublishSingleFile>true</PublishSingleFile>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishSingleFile>false</PublishSingleFile>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <PublishTrimmed>false</PublishTrimmed>
