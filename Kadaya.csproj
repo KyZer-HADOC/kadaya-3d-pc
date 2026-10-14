@@ -23,5 +23,7 @@
   <ItemGroup>
     <Compile Remove="Kadaya.Tests\**\*.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Compile Remove="DevelopmentSettings.cs" />
+  </ItemGroup>
 </Project>
-

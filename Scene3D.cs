@@ -156,8 +156,10 @@ namespace Kadaya
         }
         void Spikes3()
         {
-            foreach (var s in L.Spikes)
+            for (int spikeIndex = 0; spikeIndex < L.Spikes.Count; spikeIndex++)
             {
+                if (disabledSpikeIndices.Contains(spikeIndex)) continue;
+                var s = L.Spikes[spikeIndex];
                 if (s.X > cam + W + 400 || s.Y < cam - 400) continue;
                 for (float x = s.X; x < s.Y; x += 28)
                     for (float zz = -250; zz <= 450; zz += 70)
@@ -303,20 +305,43 @@ namespace Kadaya
             foreach (int side in new[] { -1, 1 }) Pt(r, mCone, 3 + side * 15, bob + 151, 1, 10, 23, 10, -side * .34f, new Color(92, 78, 114), Em(ti, .16f), a);
             Pt(r, mCyl, 22, bob + 129, 13, 17, 4, 4, 0, new Color(164, 153, 181), Em(ti, .2f), a);
             Pt(r, mSph, 14, bob + 128, 5, 24, 30, 20, 0, Color.Black, null, a);
-            foreach (float ez in new[] { 6f, -3f }) { Pt(r, mSph, 22, bob + 130, ez, 7, 7, 7, 0, eye, Em(eye, 1f), a); GlowG(r, 22, bob + 130, ez, 18, Ad(ti, a)); }
+            foreach (float ez in new[] { 6f, -3f })
+            {
+                Color eyeColor = eye;
+                if (s == 1 && progression != null && progression.Profile.EquippedEyeId == "kakashi")
+                    eyeColor = ez > 0 ? new Color(255, 58, 72) : new Color(150, 240, 255);
+                Pt(r, mSph, 22, bob + 130, ez, 7, 7, 7, 0, eyeColor, Em(eyeColor, 1f), a);
+                GlowG(r, 22, bob + 130, ez, 18, Ad(eyeColor, a));
+            }
             float ang0 = ScytheAng(at, cb, chg, air, run, tt), ca = MathF.Cos(ang0), sa = MathF.Sin(ang0); var d = new Vector2(ca, -sa); var nrm = new Vector2(-sa, -ca);
             float reach = at >= 0 ? MathF.Sin(Cl(at, 0, 1) * MathF.PI) * 16 : 0; var hand = new Vector2(20 + reach, bob + 82 + (at >= 0 ? 4 : 0)); var pole0 = hand - d * 72; var pole1 = hand + d * 104; var rear = hand - d * 52;
             var sh1 = new Vector2(12, bob + 104); var sh2 = new Vector2(-6, bob + 102); var el1 = (sh1 + hand) / 2 + new Vector2(0, -14); var el2 = (sh2 + rear) / 2 + new Vector2(0, -14);
             Bm(r, mCyl, sh2, el2, 2, 9, 9, dk, null, a); Bm(r, mCyl, el2, rear, 3, 8, 8, dk, null, a); Pt(r, mSph, rear.X, rear.Y, 4, 11, 11, 11, 0, bone, null, a);
-            specK = .7f; Bm(r, mCyl, pole0, pole1, 12, 5.5f, 5.5f, new Color(52, 44, 68), Em(ti, .08f), a);
-            for (int k = 1; k <= 3; k++) { var q = Vector2.Lerp(pole0, pole1, k * .22f); Pt(r, mSph, q.X, q.Y, 12, 6, 6, 6, 0, ti, Em(ti, 1f), a); }
-            Pt(r, mSph, pole1.X, pole1.Y, 12, 12, 12, 12, 0, new Color(96, 86, 116), null, a);
-            Vector2 P0 = pole1, prev = P0; float Rb = 72;
-            for (int i = 1; i <= 12; i++)
+            specK = .7f;
+            bool equippedSword = s == 1 && progression != null && !string.IsNullOrEmpty(progression.Profile.EquippedWeaponId);
+            if (equippedSword)
             {
-                float ph = i / 12f * 2.0f, aa = Rb * MathF.Sin(ph), bb = Rb * (1 - MathF.Cos(ph)) * .9f; var cur2 = P0 + nrm * aa - d * bb; float u = i / 12f, w = 14 * MathF.Pow(1 - u, .8f) + 1.6f;
-                Bm(r, mCube, prev, cur2, 12, w, 3.5f, Color.Lerp(new Color(64, 60, 84), new Color(236, 240, 255), u), Em(ti, (at >= 0 ? .55f : .3f) + .6f * u), a);
-                if (i == 6) GlowG(r, cur2.X, cur2.Y, 12, at >= 0 ? 60 : 30, Ad(ti, (at >= 0 ? .55f : .25f) * a)); if (i == 12) GlowG(r, cur2.X, cur2.Y, 12, 30, Ad(ti, .9f * a)); prev = cur2;
+                Color blade = progression.Profile.EquippedWeaponId == "lightning" ? new Color(172, 225, 255) : progression.Profile.EquippedWeaponId == "chakra" ? CY : new Color(230, 235, 250);
+                float swing = at >= 0 ? MathF.Sin(Cl(at, 0, 1) * MathF.PI) * .8f - .35f : -.18f;
+                Vector2 swordDir = new Vector2(MathF.Cos(swing), -MathF.Sin(swing));
+                Vector2 swordBase = hand + swordDir * 10, swordTip = hand + swordDir * 128;
+                Bm(r, mCyl, hand - swordDir * 27, hand + swordDir * 5, 12, 8, 8, new Color(70, 45, 34), Em(OR, .15f), a);
+                Bm(r, mCube, swordBase, swordTip, 12, progression.Profile.EquippedWeaponId == "katana" ? 8 : 10, 4, blade, Em(blade, .65f), a);
+                Bm(r, mCube, hand + swordDir * 6 + new Vector2(-swordDir.Y, swordDir.X) * 18, hand + swordDir * 6 - new Vector2(-swordDir.Y, swordDir.X) * 18, 12, 5, 7, OR, Em(OR, .25f), a);
+                GlowG(r, swordTip.X, swordTip.Y, 12, at >= 0 ? 64 : 34, Ad(blade, .75f));
+            }
+            else
+            {
+                Bm(r, mCyl, pole0, pole1, 12, 5.5f, 5.5f, new Color(52, 44, 68), Em(ti, .08f), a);
+                for (int k = 1; k <= 3; k++) { var q = Vector2.Lerp(pole0, pole1, k * .22f); Pt(r, mSph, q.X, q.Y, 12, 6, 6, 6, 0, ti, Em(ti, 1f), a); }
+                Pt(r, mSph, pole1.X, pole1.Y, 12, 12, 12, 12, 0, new Color(96, 86, 116), null, a);
+                Vector2 P0 = pole1, prev = P0; float Rb = 72;
+                for (int i = 1; i <= 12; i++)
+                {
+                    float ph = i / 12f * 2.0f, aa = Rb * MathF.Sin(ph), bb = Rb * (1 - MathF.Cos(ph)) * .9f; var cur2 = P0 + nrm * aa - d * bb; float u = i / 12f, bladeWidth = 14 * MathF.Pow(1 - u, .8f) + 1.6f;
+                    Bm(r, mCube, prev, cur2, 12, bladeWidth, 3.5f, Color.Lerp(new Color(64, 60, 84), new Color(236, 240, 255), u), Em(ti, (at >= 0 ? .55f : .3f) + .6f * u), a);
+                    if (i == 6) GlowG(r, cur2.X, cur2.Y, 12, at >= 0 ? 60 : 30, Ad(ti, (at >= 0 ? .55f : .25f) * a)); if (i == 12) GlowG(r, cur2.X, cur2.Y, 12, 30, Ad(ti, .9f * a)); prev = cur2;
+                }
             }
             specK = 0;
             Bm(r, mCyl, sh1, el1, 14, 9, 9, dk, null, a); Bm(r, mCyl, el1, hand, 14, 8, 8, dk, null, a); Pt(r, mSph, hand.X, hand.Y, 12, 11, 11, 11, 0, bone, null, a);
@@ -329,6 +354,7 @@ namespace Kadaya
             Color col, ac, trim;
             if (e.Boss) { if (e.Kind == 0) { col = new Color(78, 18, 22); ac = new Color(255, 70, 30); trim = OR; } else if (e.Kind == 1) { col = new Color(18, 32, 54); ac = CY; trim = new Color(160, 220, 255); } else { col = new Color(56, 14, 8); ac = new Color(255, 140, 30); trim = new Color(255, 210, 90); } }
             else if (sm) { col = new Color(52, 26, 34); ac = OR; trim = new Color(255, 200, 110); } else if (ar) { col = new Color(36, 28, 60); ac = new Color(164, 92, 255); trim = new Color(200, 160, 255); } else { col = new Color(22, 26, 46); ac = RD; trim = new Color(110, 130, 180); }
+            if (e.GenjutsuT > 0) { ac = new Color(190, 85, 255); trim = new Color(225, 170, 255); }
             if (fl) col = WH; Color dk = Color.Lerp(col, Color.Black, .5f), acE = Em(ac, .9f), trE = Em(trim, .45f);
             Rig r = MkRig(e.X, e.Y, e.Z, s, e.Yaw); bool air = e.Y < G - 6; float w = MathF.Sin(e.Walk * 12) * (e.Mv != 0 ? 1 : 0), idle = MathF.Sin(e.Ph * 2.4f) * 2;
             Blob(e.X, e.Y, e.Z, 42 * s, al); GlowAt(e.X, G - e.Y + 60 * s, e.Z, 90 * s, Ad(ac, (fl ? .6f : .2f) * al));
@@ -390,16 +416,171 @@ namespace Kadaya
             specK = 0;
         }
 
+        void Summon3D(SummonedCompanion summon, float alpha = 1f)
+        {
+            SummoningDefinition d = summon.Definition;
+            Color body = RgbColor(d.PrimaryRgb), accent = RgbColor(d.AccentRgb);
+            Color dark = Color.Lerp(body, Color.Black, .48f), glow = Em(accent, .7f);
+            float s = d.Size * .55f, bob = MathF.Sin(summon.Animation * (summon.Mv > 0 ? 10 : 2.4f)) * (summon.Mv > 0 ? 4 : 2);
+            bool legendaryToad = d.Id == "giant-toad-warrior";
+            bool legendarySnake = d.Id == "ancient-serpent";
+            bool legendaryBird = d.Id == "sky-king-bird";
+            bool legendaryTurtle = d.Id == "colossal-turtle-guardian";
+            Rig r = MkRig(summon.X, summon.Y, summon.Z, s, summon.Yaw);
+            GlowAt(summon.X, G - summon.Y + 54 * s, summon.Z, 92 * s, Ad(accent, .25f * alpha));
+            Color shadowRed = new Color(255, 32, 62);
+            if (d.Category == SummonCategory.Toad || legendaryToad)
+            {
+                Pt(r, mSph, 0, 52 + bob, 0, 82, 52, 64, 0, body, glow, alpha);
+                Pt(r, mSph, 35, 72 + bob, 4, 48, 38, 48, 0, Color.Lerp(body, Color.White, .1f), glow, alpha);
+                Pt(r, mSph, 47, 79 + bob, 18, 9, 9, 6, 0, Color.White, null, alpha);
+                Pt(r, mSph, 49, 79 + bob, 21, 4, 4, 3, 0, accent, Em(accent, .9f), alpha);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Pt(r, mCube, side * 32, 19, 0, 25, 30, 34, 0, body, null, alpha);
+                    Pt(r, mCone, side * 17, 94 + bob, 0, 14, 27, 14, -side * .2f, accent, glow, alpha);
+                }
+                if (d.Id.Contains("armored") || d.Role == SummonRole.Legendary)
+                {
+                    Pt(r, mFrus, -10, 64 + bob, -14, 90, 42, 55, 0, dark, glow, alpha);
+                    for (int i = -1; i <= 1; i++) Pt(r, mCube, i * 24, 94 + bob, 0, 7, 16, 5, 0, accent, glow, alpha);
+                }
+            }
+            else if (d.Category == SummonCategory.Dog || d.Category == SummonCategory.Wolf || d.Category == SummonCategory.Panther)
+            {
+                float bodyY = 48 + bob;
+                Pt(r, mSph, 0, bodyY, 0, 100, 42, 43, 0, body, glow, alpha);
+                Pt(r, mSph, 48, bodyY + 14, 0, 47, 36, 38, 0, body, glow, alpha);
+                Pt(r, mSph, 67, bodyY + 10, 19, 7, 7, 5, 0, Color.White, null, alpha);
+                Pt(r, mSph, 69, bodyY + 10, 22, 3, 3, 2, 0, accent, Em(accent, .8f), alpha);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Pt(r, mCube, side * 29, 19, 0, 12, 37, 13, 0, dark, null, alpha);
+                    Pt(r, mCone, 48 + side * 12, 83 + bob, 0, 14, 23, 13, 0, accent, glow, alpha);
+                }
+                Pt(r, mCone, -52, 67 + bob, 0, 13, 45, 13, 0, body, glow, alpha);
+                if (d.Category != SummonCategory.Dog) Pt(r, mCone, -22, 72 + bob, 0, 16, 33, 16, 0, accent, glow, alpha);
+                if (d.Id.Contains("armored")) Pt(r, mCube, 0, 68 + bob, -5, 68, 24, 45, 0, dark, glow, alpha);
+                if (d.Id == "ninja-dog-pack" || d.Id == "wolf-pack")
+                {
+                    Rig pack = MkRig(summon.X - 52, summon.Y, summon.Z + 34, s * .72f, summon.Yaw - .2f);
+                    Pt(pack, mSph, 0, bodyY - 2, 0, 92, 39, 41, 0, body, glow, alpha);
+                    Pt(pack, mSph, 45, bodyY + 10, 0, 43, 33, 36, 0, body, glow, alpha);
+                    foreach (int side in new[] { -1, 1 }) Pt(pack, mCube, side * 27, 18, 0, 11, 34, 12, 0, dark, null, alpha);
+                }
+            }
+            else if (d.Category == SummonCategory.Bird || legendaryBird)
+            {
+                float flap = MathF.Sin(t * (summon.Mv > 0 ? 13 : 4)) * .38f;
+                Pt(r, mSph, 0, 53 + bob, 0, 54, 65, 44, 0, body, glow, alpha);
+                Pt(r, mSph, 28, 89 + bob, 0, 36, 34, 35, 0, body, glow, alpha);
+                Pt(r, mCone, 52, 82 + bob, 0, 24, 17, 18, -MathHelper.PiOver2, accent, glow, alpha);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Pt(r, mCone, -5, 67 + bob, side * 23, 76, 16, 18, side * flap, accent, glow, alpha);
+                    Pt(r, mCone, -16, 20 + bob, side * 8, 14, 43, 14, 0, dark, null, alpha);
+                }
+            }
+            else if (d.Category == SummonCategory.Snake || legendarySnake)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    float xx = -58 + i * 26;
+                    float yy = 18 + MathF.Abs(MathF.Sin(summon.Animation * 3 + i * .7f)) * 24;
+                    Pt(r, mSph, xx, yy, 0, 40 - i * 2, 25 - i, 28 - i * 2, 0, i % 2 == 0 ? body : dark, glow, alpha);
+                }
+                Pt(r, mSph, 62, 34 + bob, 0, 44, 33, 35, 0, body, glow, alpha);
+                Pt(r, mCone, 80, 29 + bob, 0, 25, 10, 15, -MathHelper.PiOver2, accent, glow, alpha);
+                Pt(r, mSph, 74, 41 + bob, 16, 5, 5, 4, 0, new Color(255, 70, 45), Em(shadowRed, .8f), alpha);
+            }
+            else if (d.Category == SummonCategory.Slug)
+            {
+                float slim = MathF.Sin(summon.Animation * 4) * 5;
+                Pt(r, mSph, 0, 29 + slim, 0, 112, 48, 74, 0, body, glow, alpha);
+                Pt(r, mSph, 47, 48 + slim, 0, 39, 50, 40, 0, Color.Lerp(body, Color.White, .18f), glow, alpha);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Pt(r, mCyl, 46 + side * 11, 86 + slim, side * 8, 5, 33, 5, -side * .18f, accent, glow, alpha);
+                    Pt(r, mSph, 46 + side * 11, 105 + slim, side * 8, 9, 9, 9, 0, Color.White, null, alpha);
+                }
+            }
+            else if (d.Category == SummonCategory.Turtle || legendaryTurtle)
+            {
+                Pt(r, mSph, 0, 47 + bob, 0, 108, 58, 92, 0, body, glow, alpha);
+                Pt(r, mFrus, -5, 78 + bob, -4, 90, 52, 80, 0, dark, glow, alpha);
+                Pt(r, mSph, 55, 46 + bob, 0, 43, 34, 38, 0, body, glow, alpha);
+                Pt(r, mSph, 72, 53 + bob, 19, 5, 5, 4, 0, accent, Em(accent, .7f), alpha);
+                foreach (int side in new[] { -1, 1 }) Pt(r, mCube, side * 36, 15, 0, 25, 27, 32, 0, body, null, alpha);
+                for (int i = -1; i <= 1; i++) Pt(r, mCube, i * 26, 80 + bob, -8, 4, 45, 4, 0, accent, glow, alpha);
+            }
+            else if (d.Category == SummonCategory.Dragon)
+            {
+                Pt(r, mSph, -12, 55 + bob, 0, 105, 45, 55, 0, body, glow, alpha);
+                Pt(r, mSph, 43, 81 + bob, 0, 49, 41, 42, 0, body, glow, alpha);
+                Pt(r, mCone, 67, 75 + bob, 0, 29, 15, 17, -MathHelper.PiOver2, accent, glow, alpha);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Pt(r, mCone, -20, 87 + bob, side * 18, 82, 20, 23, side * .28f, accent, glow, alpha);
+                    Pt(r, mCone, 43, 109 + bob, side * 12, 13, 32, 13, -side * .4f, dark, glow, alpha);
+                }
+                for (int i = 0; i < 4; i++) Pt(r, mCone, -52 - i * 17, 52 + bob, 0, 20, 20, 20, 0, body, glow, alpha);
+            }
+            else
+            {
+                bool emperor = d.Id == "shadow-emperor";
+                Color aura = emperor || d.Category == SummonCategory.Shadow ? shadowRed : accent;
+                GlowAt(summon.X, G - summon.Y + 70 * s, summon.Z, 135 * s, Ad(aura, .42f * alpha));
+                Pt(r, mSph, 0, 56 + bob, 0, emperor ? 112 : 92, emperor ? 92 : 74, emperor ? 82 : 66, 0, body, Em(aura, .24f), alpha);
+                Pt(r, mSph, 42, 94 + bob, 0, 54, 47, 48, 0, dark, Em(aura, .35f), alpha);
+                Pt(r, mCone, 60, 85 + bob, 0, 34, 18, 21, -MathHelper.PiOver2, accent, Em(aura, .9f), alpha);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Pt(r, mCone, side * 23, 131 + bob, 1, 20, emperor ? 58 : 44, 20, -side * .42f, aura, Em(aura, .8f), alpha);
+                    Pt(r, mCube, side * 45, 57 + bob, 0, 28, 70, 26, -side * .32f, dark, Em(aura, .35f), alpha);
+                    Pt(r, mSph, 51, 99 + bob, side * 18, 9, 8, 6, 0, new Color(255, 54, 66), Em(shadowRed, 1), alpha);
+                }
+                for (int i = 0; i < (emperor ? 8 : 4); i++)
+                {
+                    float a = summon.Animation * 1.7f + i * MathHelper.TwoPi / (emperor ? 8 : 4);
+                    float px0 = MathF.Cos(a) * (62 + MathF.Sin(t * 4 + i) * 8), py0 = 76 + MathF.Sin(a) * 52;
+                    Pt(r, mSph, px0, py0, 38, 9, 9, 9, 0, aura, Em(aura, .9f), alpha);
+                }
+            }
+            specK = 0;
+        }
+
         // ---------- full scene ----------
         void World3D()
         {
             Scenery3(); Ground3(); Plats3(); Spikes3(); Checks3(); Gate3(); Souls3();
             foreach (var k in clones) Reaper3D(k.X, G, k.Z, 1, Cl(k.L, 0, .7f), k.T, k.Mv * 300, false, k.At >= 0 ? k.At / .28f : -1, 0, false, CY, 1, k.Yaw);
+            if (summonedCompanion != null && summonedCompanion.X > cam - 500 && summonedCompanion.X < cam + W + 500) Summon3D(summonedCompanion);
+            if (summoningMenuOpen && SelectedSummon != null)
+            {
+                float previewX = Cl(P.X + 300, 40, L.GateX + 40), previewZ = Cl(P.Z + 180, -240, 460);
+                float previewY = FloorBelow(previewX, P.Y + 2, previewZ);
+                if (previewY < 9999 && (summonedCompanion == null || DistXZ(previewX, previewZ, summonedCompanion.X, summonedCompanion.Z) > 140))
+                {
+                    var preview = new SummonedCompanion { Definition = SelectedSummon, X = previewX, Y = previewY, Z = previewZ, Yaw = P.Yaw, Animation = t };
+                    Summon3D(preview, .72f);
+                }
+            }
             foreach (var e in en) if (e.X > cam - 500 && e.X < cam + W + 500) Foe3D(e);
-            if (!P.Dead && !(P.Inv > 0 && (int)(t * 30) % 2 == 0))
+            Color playerTint = progression.Profile.EquippedEyeId == "rinnegan" ? new Color(190, 130, 255)
+                : progression.Profile.EquippedEyeId == "byakugan" || progression.Profile.EquippedEyeId == "jougan" ? new Color(145, 235, 255)
+                : progression.Profile.EquippedEyeId == "sharingan" || progression.Profile.EquippedEyeId == "mangekyo" || progression.Profile.EquippedEyeId == "ems" ? new Color(255, 95, 105)
+                : progression.Profile.EquippedEyeId == "kakashi" ? new Color(170, 215, 255) : PU;
+            if (!P.Dead && hiddenT <= 0 && !(P.Inv > 0 && (int)(t * 30) % 2 == 0))
             {
                 float atp = P.Atk > 0 ? P.AtkT / (P.Cb == 2 ? .42f : .28f) : -1;
-                Reaper3D(P.X, P.Y, P.Z, 1, P.Dash > 0 ? .35f : 1f, t, P.Vx, !P.Ground, atp, P.Cb, P.Chg > 0, PU, 1, P.Yaw);
+                Reaper3D(P.X, P.Y, P.Z, 1, P.Dash > 0 ? .35f : 1f, t, P.Vx, !P.Ground, atp, P.Cb, P.Chg > 0, playerTint, 1, P.Yaw);
+            }
+            if (susanooT > 0)
+            {
+                Color armor = progression.Profile.EquippedSusanooVariantId == "susanoo.crimson" ? new Color(255, 70, 105)
+                    : progression.Profile.EquippedSusanooVariantId == "susanoo.azure" ? new Color(105, 190, 255) : new Color(180, 120, 255);
+                GlowAt(P.X, G - P.Y + 80, P.Z, 190, Ad(armor, .45f));
+                Reaper3D(P.X, P.Y, P.Z, 1, .46f, t, P.Vx, !P.Ground, -1, 0, false, armor, 1.65f, P.Yaw);
             }
             if (ult > 0) Reaper3D(P.X, G + 40, P.Z, 1, .5f, t, 0, false, Cl((1 - ult / 1.4f) * 1.3f, 0, 1), 0, false, VI, 3.8f, P.Yaw);
             Foreground3(); GatePortal3();
@@ -418,7 +599,23 @@ namespace Kadaya
                 var top = ScreenAt(e.X, G - e.Y + 150 * e.S, e.Z);
                 if (e.St == 1) { Glow(top.X, top.Y + 14, 55, Ad(RD, .9f)); Txt("!", top.X - 8, top.Y - 12, 46, RD, 0); }
                 if (!e.Boss && e.Hp < e.Mh && e.Aggro) { Box(top.X, top.Y, 48, 5, 0, Color.Black * .55f); Box(top.X - 24 + 24 * e.Hp / e.Mh, top.Y, 48 * e.Hp / e.Mh, 5, 0, RD); }
+                if (e.GenjutsuT > 0) { GlowS(top.X, top.Y - 20, 46, 210, Ad(new Color(195, 88, 255), .9f)); Txt("GENJUTSU " + e.GenjutsuT.ToString("0.0"), top.X, top.Y - 52, 12, new Color(225, 190, 255), 1); }
             }
+            if (futureVision)
+            {
+                foreach (Vector2 spike in L.Spikes)
+                {
+                    var hazard = ScreenAt((spike.X + spike.Y) * .5f, G - 18, 110);
+                    GlowS(hazard.X, hazard.Y, 48, 190, Ad(new Color(120, 245, 255), .95f));
+                    Txt("HAZARD", hazard.X, hazard.Y - 30, 11, new Color(150, 245, 255), 1);
+                }
+                float objectiveX = bossDead ? L.GateX : en.Count > 0 ? en[en.Count - 1].X : L.GateX;
+                var objective = ScreenAt(objectiveX, G - 250, 110);
+                Tri(objective.X, objective.Y, 42, 50, MathF.PI, Ad(new Color(255, 220, 115), .95f));
+                Txt(bossDead ? "EXIT" : "OBJECTIVE", objective.X, objective.Y - 36, 12, new Color(255, 220, 115), 1);
+                foreach (var foe in en) if (!foe.Dead) { var marker = ScreenAt(foe.X, G - foe.Y + 170, foe.Z); CircS(marker.X, marker.Y, 18, 3, Ad(RD, .9f)); }
+            }
+            if (freezeT > 0) Box(W / 2, H / 2, W, H, 0, new Color(50, 180, 240, 25));
             foreach (var p in proj) DrawProj(p);
             DrawFx();
             for (int i = 0; i < 120; i++) { bool a = i % 4 != 0; Glow(amb[i, 0], amb[i, 1], amb[i, 4] * (a ? 3 : 2), Ad(L.Th.Style == 0 ? new Color(200, 255, 120) : L.Th.Style == 1 ? new Color(150, 220, 255) : new Color(255, 150, 50), a ? .6f : .35f)); }
@@ -443,7 +640,7 @@ namespace Kadaya
                     camPitch = Cl(camPitch + CameraMotion.MousePitchDelta(dy, scale), -.12f, .72f);
                     if (Math.Abs(dx) + Math.Abs(dy) > 1) camMouseIdle = 0;
                     else camMouseIdle += dt;
-                    if (camMouseIdle > .8f && (Math.Abs(P.Vx) + Math.Abs(P.Vz) > 90 || P.Dash > 0))
+                    if (!byakuganScout && camMouseIdle > .8f && (Math.Abs(P.Vx) + Math.Abs(P.Vz) > 90 || P.Dash > 0))
                     {
                         float followYaw = P.Yaw - MathHelper.PiOver2;
                         camYaw = CameraMotion.ApproachYaw(camYaw, followYaw, dt, 2.4f);
@@ -459,7 +656,11 @@ namespace Kadaya
                 camDistance = Cl(camDistance - (wheel - cameraWheel) * .45f, 540, 1500); cameraWheel = wheel;
             }
             float follow = 1 - MathF.Exp(-Math.Min(.05f, (float)gt.ElapsedGameTime.TotalSeconds) * 5f);
-            cam += (Cl(P.X - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)) - cam) * follow; camZ += (P.Z - camZ) * follow; camY += (Cl(P.Y - 500, -220, 0) - camY) * follow;
+            float cameraTargetX = byakuganScout ? scoutX : P.X;
+            float cameraTargetZ = byakuganScout ? scoutZ : P.Z;
+            float cameraTargetY = byakuganScout ? 0 : Cl(P.Y - 500, -220, 0);
+            cam += (Cl(cameraTargetX - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)) - cam) * follow;
+            camZ += (cameraTargetZ - camZ) * follow; camY += (cameraTargetY - camY) * follow;
             float sx = Rf(-1, 1) * shake, sy = Rf(-1, 1) * shake;
             SetCam(sx, sy); Lighting();
             GraphicsDevice.SetRenderTarget(rt); GraphicsDevice.Viewport = new Viewport(0, 0, rt.Width, rt.Height); GraphicsDevice.Clear(Color.Black);
@@ -502,4 +703,3 @@ namespace Kadaya
         }
     }
 }
-

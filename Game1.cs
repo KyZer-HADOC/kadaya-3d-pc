@@ -8,13 +8,14 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Kadaya
 {
-    class Foe { public int Type, F, St, Kind; public bool Boss, Dead, Did, Aggro; public float X, Y, Z, Vx, Vy, Vz, Yaw, Hp, Mh, Sp, S, Tm, Flash, Walk, Mv, A, B, Ph, Cnt, Air, Al = 1; }
+class Foe { public int Type, F, St, Kind; public bool Boss, Dead, Did, Aggro; public float X, Y, Z, Vx, Vy, Vz, Yaw, Hp, Mh, Sp, S, Tm, Flash, Walk, Mv, A, B, Ph, Cnt, Air, Al = 1, PoisonT, PoisonDmg, PoisonCd, BurnT, BurnDmg, BurnCd, GenjutsuT; }
     class Proj { public string K; public bool Own, Spent; public float X, Y, Z, Vx, Vy, Vz, L, R, Dmg, T0; }
     class Clone { public float X, Z, Yaw, L, Cd, At = -1, T, Mv; public int F; }
+class SummonedCompanion { public SummoningDefinition Definition; public SummonUpgradeStats Upgrades; public float X, Y, Z, Yaw, Hp, Mh, Remaining, AttackCd, SpecialCd, HealCd, Animation, Mv, LeapT; }
     class Part { public float X, Y, Z, Vx, Vy, Vz, L, M, Sz, G; public Color C; public bool Dk; }
     class Fx { public string K; public float X, Y, Z, R, L, M, A; public int F; public Color C; public bool E; }
     class Trl { public Vector3 A, B; public float L; public bool Brk; }
-    class Pl { public float X, Y, Z, Vx, Vy, Vz, Yaw, Hp, Mh = 100, En, CbT, Atk, AtkT, Inv, Dash, Dcd, Chg, Kcd, Coy; public int F, J, Cb; public bool Hit, Dead, Run, Ground; }
+    class Pl { public float X, Y, Z, Vx, Vy, Vz, Yaw, Hp, Mh = 100, En, CbT, Atk, AtkT, Inv, Dash, Dcd, Chg, Kcd, CloneCd, Coy; public int F, J, Cb; public bool Hit, Dead, Run, Ground; }
 
     public partial class Game1 : Game
     {
@@ -28,8 +29,23 @@ namespace Kadaya
         MouseState mouseCur, mousePrev;
 
         string state = "title", banS = "";
-        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1, camMouseIdle; bool ultHit = true, bossDead, cameraCaptured;
+        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, summonCooldown, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1, camMouseIdle; bool ultHit = true, bossDead, cameraCaptured, abilityMenuOpen, summoningMenuOpen;
         int lv, kills; Level L; float checkX, checkZ = 110; bool[] lit;
+        ProgressionService progression;
+        SummoningService summoningService;
+        PremiumShopService shopService;
+        SummonedCompanion summonedCompanion;
+        int selectedSummonIndex;
+        int selectedShopIndex, selectedAbilityIndex;
+        bool shopMenuOpen, byakuganScout, futureVision;
+        float scoutX, scoutZ, rotationT, freezeT, susanooT, susanooCd, eyeCooldown, pushCooldown, genjutsuCooldown, sageT, sageCd;
+        float shurikenCd, kenjutsuCd, hiddenCd, kunaiCd, hiddenT;
+        HashSet<int> disabledSpikeIndices = new HashSet<int>();
+        string normalProfilePath, legacySavePath;
+#if DEBUG
+        string testProfilePath;
+        bool testMode;
+#endif
         Pl P = new Pl();
         List<Foe> en = new List<Foe>(); List<Proj> proj = new List<Proj>(); List<Clone> clones = new List<Clone>();
         List<Part> pt = new List<Part>(); List<Fx> fx = new List<Fx>(); List<Trl> trail = new List<Trl>();
@@ -59,7 +75,7 @@ namespace Kadaya
             vig = Make(256, (u, v) => { float r = MathF.Sqrt(u * u + v * v); return new Color(0, 0, 0, Cl(MathF.Pow(Cl((r - .42f) / .9f, 0, 1), 1.5f) * .95f, 0, 1)); });
             for (int i = 0; i < 140; i++) { stars[i, 0] = Rf(0, W); stars[i, 1] = Rf(0, 420); stars[i, 2] = Rf(.5f, 2); stars[i, 3] = Rf(0, 6); }
             for (int i = 0; i < 120; i++) { amb[i, 0] = Rf(0, W); amb[i, 1] = Rf(0, H); amb[i, 2] = Rf(-20, 20); amb[i, 3] = Rf(15, 60); amb[i, 4] = Rf(1.5f, 4); }
-            Init3D(); lv = LoadLv(); LoadLevel(lv, 250); state = "title";
+            Init3D(); InitializeProgression(); LoadLevel(lv, 250); state = "title";
         }
         void CreateRenderTargets()
         {
@@ -75,16 +91,655 @@ namespace Kadaya
             tx.SetData(c); return tx;
         }
 
-        // ---------- save ----------
-        string SavePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Kadaya", "save.txt");
-        void SaveLv(int v = -1) { try { Directory.CreateDirectory(Path.GetDirectoryName(SavePath)); File.WriteAllText(SavePath, (v < 0 ? lv : v).ToString()); } catch { } }
-        int LoadLv() { try { return Math.Max(0, Math.Min(2, int.Parse(File.ReadAllText(SavePath)))); } catch { return 0; } }
+        // ---------- progression profiles ----------
+        bool IsTestMode
+        {
+            get
+            {
+#if DEBUG
+                return testMode;
+#else
+                return false;
+#endif
+            }
+        }
+
+        string ActiveProfilePath
+        {
+            get
+            {
+#if DEBUG
+                if (testMode) return testProfilePath;
+#endif
+                return normalProfilePath;
+            }
+        }
+
+        void InitializeProgression()
+        {
+            string appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            normalProfilePath = ProgressionStore.GetNormalProfilePath(appDataRoot);
+            legacySavePath = ProgressionStore.GetLegacySavePath(appDataRoot);
+#if DEBUG
+            testProfilePath = ProgressionStore.GetTestProfilePath(appDataRoot);
+            testMode = DevelopmentSettings.Load(DevelopmentSettings.GetPath(appDataRoot));
+#endif
+            LoadActiveProgression();
+        }
+
+        void LoadActiveProgression()
+        {
+            string legacyPath = IsTestMode ? null : legacySavePath;
+            ProgressionProfile profile = ProgressionStore.Load(ActiveProfilePath, legacyPath);
+#if DEBUG
+            progression = new ProgressionService(profile, IsTestMode);
+            summoningService = new SummoningService(profile, IsTestMode);
+            shopService = new PremiumShopService(profile, IsTestMode);
+#else
+            progression = new ProgressionService(profile);
+            summoningService = new SummoningService(profile);
+            shopService = new PremiumShopService(profile);
+#endif
+            lv = progression.Profile.UnlockedLevel;
+        }
+
+        void SaveProgression()
+        {
+            if (progression == null || string.IsNullOrWhiteSpace(ActiveProfilePath)) return;
+            if (progression.Profile.IsReadOnlyRecovery)
+            {
+                banS = "SAVE UNREADABLE - ORIGINAL PRESERVED";
+                banT = 4f;
+                return;
+            }
+            try { ProgressionStore.Save(progression.Profile, ActiveProfilePath); }
+            catch
+            {
+                banS = "SAVE FAILED - CHECK DISK SPACE";
+                banT = 4f;
+            }
+        }
+
+        void ResetNormalProgression()
+        {
+            if (!IsTestMode)
+            {
+                progression.ResetNewGame();
+                SaveProgression();
+                return;
+            }
+
+            ProgressionProfile normalProfile = ProgressionStore.Load(normalProfilePath, legacySavePath);
+            if (normalProfile.IsReadOnlyRecovery)
+            {
+                banS = "NORMAL SAVE UNREADABLE - ORIGINAL PRESERVED";
+                banT = 4f;
+                return;
+            }
+            var normalProgression = new ProgressionService(normalProfile);
+            normalProgression.ResetNewGame();
+            try { ProgressionStore.Save(normalProgression.Profile, normalProfilePath); }
+            catch
+            {
+                banS = "SAVE FAILED - CHECK DISK SPACE";
+                banT = 4f;
+            }
+        }
+
+        void NotifyAbilityUnlocks(IReadOnlyList<string> unlockedIds)
+        {
+            if (unlockedIds == null || unlockedIds.Count == 0) return;
+            AbilityDefinition ability = AbilityCatalog.Get(unlockedIds[unlockedIds.Count - 1]);
+            if (ability == null) return;
+            banS = "UNLOCKED  " + ability.Name + "  [" + ability.Binding + "]";
+            banT = 2.8f;
+        }
+
+        int CurrencyBalance(string currency)
+        {
+            int balance;
+            return progression != null && progression.Profile.CurrencyBalances != null &&
+                progression.Profile.CurrencyBalances.TryGetValue(currency, out balance) ? Math.Max(0, balance) : 0;
+        }
+
+        void AwardCurrency(bool boss)
+        {
+            SummoningEconomy.AwardEnemyDefeat(progression.Profile, boss);
+        }
+
+        SummoningDefinition SelectedSummon
+        {
+            get { return SummoningCatalog.All.Count == 0 ? null : SummoningCatalog.All[(int)Cl(selectedSummonIndex, 0, SummoningCatalog.All.Count - 1)]; }
+        }
+
+        bool TryFindSummonSpawn(out float spawnX, out float spawnY, out float spawnZ)
+        {
+            float[,] offsets = { { -150, 0 }, { 150, 0 }, { -110, 110 }, { 110, -110 }, { 0, 180 }, { 0, -180 }, { -250, 0 }, { 250, 0 } };
+            for (int i = 0; i < offsets.GetLength(0); i++)
+            {
+                float x = Cl(P.X + offsets[i, 0], 40, bossDead ? L.GateX + 60 : L.GateX - 90);
+                float z = Cl(P.Z + offsets[i, 1], -250, 470);
+                float floor = FloorBelow(x, P.Y + 2, z);
+                if (floor > 9999 || floor < P.Y - 180 || floor > P.Y + 400 || InGap(x)) continue;
+                bool spike = false;
+                foreach (var s in L.Spikes) if (x > s.X - 35 && x < s.Y + 35 && z > -250 && z < 450) { spike = true; break; }
+                if (spike) continue;
+                spawnX = x; spawnY = floor; spawnZ = z;
+                return true;
+            }
+            spawnX = spawnY = spawnZ = 0;
+            return false;
+        }
+
+        void TrySummon(string id)
+        {
+            SummoningDefinition definition = SummoningCatalog.Get(id);
+            if (definition == null) return;
+            if (!summoningService.IsOwned(id)) { banS = "PREMIUM LOCKED - OPEN SUMMON VAULT [M]"; banT = 1.8f; return; }
+            if (summonedCompanion != null) { banS = "A SUMMON IS ALREADY ACTIVE - PRESS X"; banT = 1.5f; return; }
+#if DEBUG
+            bool freeTest = summoningService.IsTestMode;
+#else
+            bool freeTest = false;
+#endif
+            if (!freeTest && summonCooldown > 0) { banS = "SUMMON COOLDOWN  " + Math.Ceiling(summonCooldown) + "s"; banT = 1.2f; return; }
+            if (!freeTest && P.En < definition.EnergyCost) { banS = "NEED " + definition.EnergyCost + " SOUL ENERGY"; banT = 1.2f; return; }
+            float sx, sy, sz;
+            if (!TryFindSummonSpawn(out sx, out sy, out sz)) { banS = "NO SAFE SUMMONING SPACE NEARBY"; banT = 1.6f; return; }
+            SummonUpgradeStats upgrades = summoningService.GetStats(id);
+            summonedCompanion = new SummonedCompanion
+            {
+                Definition = definition,
+                Upgrades = upgrades,
+                X = sx, Y = sy, Z = sz,
+                Yaw = P.Yaw,
+                Hp = definition.MaximumHealth * upgrades.HealthMultiplier,
+                Mh = definition.MaximumHealth * upgrades.HealthMultiplier,
+                Remaining = definition.DurationSeconds * upgrades.DurationMultiplier,
+                AttackCd = .6f,
+                SpecialCd = Math.Max(3f, definition.CooldownSeconds * .18f),
+                HealCd = .2f
+            };
+            if (!freeTest)
+            {
+                P.En -= definition.EnergyCost;
+                summonCooldown = definition.CooldownSeconds * upgrades.CooldownMultiplier;
+            }
+            Color color = RgbColor(definition.AccentRgb);
+            Ring(sx, G - sy - 4, 120 * definition.Size, color, .75f, sz);
+            Burst(sx, G - sy - 50, 42, color, 320, 5, -140, .8f, sz);
+            Smoke(sx - 30, G - sy - 20, -80, sz); Smoke(sx + 30, G - sy - 20, 80, sz);
+            Sfx("clone", sx);
+            banS = definition.Name.ToUpperInvariant() + " SUMMONED";
+            banT = 2f;
+        }
+
+        void SummonEquipped()
+        {
+            string id = progression.Profile.EquippedSummonId;
+            if (string.IsNullOrWhiteSpace(id)) { banS = "EQUIP A SUMMON IN THE VAULT [M]"; banT = 1.6f; return; }
+            TrySummon(id);
+        }
+
+        void DismissSummon(bool message)
+        {
+            if (summonedCompanion == null)
+            {
+                if (message) { banS = "NO ACTIVE SUMMON"; banT = 1f; }
+                return;
+            }
+            SummonedCompanion old = summonedCompanion;
+            Color color = RgbColor(old.Definition.AccentRgb);
+            Ring(old.X, G - old.Y - 4, 105 * old.Definition.Size, color, .55f, old.Z);
+            Burst(old.X, G - old.Y - 45, 24, color, 260, 4, -100, .55f, old.Z);
+            summonedCompanion = null;
+            if (message) { banS = "SUMMON DISMISSED"; banT = 1.2f; }
+        }
+
+        void HandleSummoningMenuInput()
+        {
+            if (Pr(Keys.Up)) selectedSummonIndex = (selectedSummonIndex + SummoningCatalog.All.Count - 1) % SummoningCatalog.All.Count;
+            if (Pr(Keys.Down)) selectedSummonIndex = (selectedSummonIndex + 1) % SummoningCatalog.All.Count;
+            SummoningDefinition definition = SelectedSummon;
+            if (definition == null) return;
+            string reason;
+            if (Pr(Keys.B))
+            {
+                if (summoningService.TryPurchase(definition.Id, out reason)) SaveProgression();
+                banS = reason.ToUpperInvariant(); banT = 1.8f;
+            }
+            if (Pr(Keys.Enter))
+            {
+                if (summoningService.TryEquip(definition.Id, out reason)) SaveProgression();
+                banS = reason.ToUpperInvariant(); banT = 1.5f;
+            }
+            if (Pr(Keys.U))
+            {
+                if (summoningService.TryUpgrade(definition.Id, out reason)) SaveProgression();
+                banS = reason.ToUpperInvariant(); banT = 1.5f;
+            }
+            if (Pr(Keys.G)) TrySummon(definition.Id);
+            if (Pr(Keys.X)) DismissSummon(true);
+        }
+
+        void UpdateSummonedCompanion(float dt)
+        {
+            summonCooldown = Math.Max(0, summonCooldown - dt);
+            if (summonedCompanion == null) return;
+            SummonedCompanion summon = summonedCompanion;
+            SummoningDefinition definition = summon.Definition;
+            SummonUpgradeStats upgrades = summon.Upgrades;
+            summon.Remaining -= dt;
+            summon.AttackCd -= dt;
+            summon.SpecialCd -= dt;
+            summon.HealCd -= dt;
+            summon.Animation += dt;
+            if (summon.Remaining <= 0 || summon.Hp <= 0)
+            {
+                DismissSummon(false);
+                banS = summon.Hp <= 0 ? "SUMMON DEFEATED" : "SUMMON DURATION ENDED";
+                banT = 1.6f;
+                return;
+            }
+            if (definition.Role == SummonRole.Healer && summon.HealCd <= 0 && DistXZ(summon.X, summon.Z, P.X, P.Z) < 520)
+            {
+                summon.HealCd = .5f;
+                P.Hp = Math.Min(P.Mh, P.Hp + definition.HealingPerSecond * upgrades.HealingMultiplier * .5f);
+                if (summon.Animation % 2 < .5f) Burst(P.X, G - 55, 2, RgbColor(definition.AccentRgb), 55, 3, -30, .35f, P.Z);
+            }
+            if (definition.Role == SummonRole.Scout || definition.Category == SummonCategory.Bird || definition.Id == "sky-king-bird")
+                foreach (var foe in en) if (!foe.Dead && DistXZ(foe.X, foe.Z, summon.X, summon.Z) < 1200) foe.Aggro = true;
+
+            Foe target = null;
+            float targetDistance = float.MaxValue;
+            if (definition.Role != SummonRole.Healer) foreach (var foe in en)
+            {
+                if (foe.Dead) continue;
+                float distance = DistXZ(foe.X, foe.Z, summon.X, summon.Z);
+                if (distance < targetDistance) { target = foe; targetDistance = distance; }
+            }
+            float tx, tz;
+            if (target != null && targetDistance < 1500)
+            { tx = target.X; tz = target.Z; }
+            else
+            { tx = P.X - MathF.Cos(P.Yaw) * 115; tz = P.Z - MathF.Sin(P.Yaw) * 115; target = null; targetDistance = DistXZ(tx, tz, summon.X, summon.Z); }
+
+            float speed = definition.MoveSpeed * upgrades.SpeedMultiplier;
+            if (targetDistance > (target == null ? 85 : definition.AttackRange * .72f))
+            {
+                float dx = tx - summon.X, dz = tz - summon.Z;
+                float distance = Math.Max(1, MathF.Sqrt(dx * dx + dz * dz));
+                float nx = Cl(summon.X + dx / distance * speed * dt, 40, bossDead ? L.GateX + 60 : L.GateX - 90);
+                float nz = Cl(summon.Z + dz / distance * speed * dt, -250, 470);
+                if (!InGap(nx) && FloorBelow(nx, summon.Y + 2, nz) < 9999) { summon.X = nx; summon.Z = nz; }
+                float floor = FloorBelow(summon.X, summon.Y + 2, summon.Z);
+                if (floor < 9999) summon.Y = floor;
+                summon.Mv = 1;
+            }
+            else summon.Mv = 0;
+            if (summon.LeapT > 0)
+            {
+                float ground = FloorBelow(summon.X, summon.Y + 2, summon.Z);
+                if (ground < 9999) summon.Y = ground - MathF.Sin((summon.LeapT / .45f) * MathHelper.Pi) * 95;
+                summon.LeapT = Math.Max(0, summon.LeapT - dt);
+            }
+            else { float ground = FloorBelow(summon.X, summon.Y + 2, summon.Z); if (ground < 9999) summon.Y = ground; }
+            summon.Yaw = MathF.Atan2(tz - summon.Z, tx - summon.X);
+
+            if (target != null && targetDistance <= definition.AttackRange && summon.AttackCd <= 0 && definition.Damage > 0)
+            {
+                summon.AttackCd = Math.Max(.28f, definition.AttackInterval);
+                float damage = definition.Damage * upgrades.DamageMultiplier;
+                Color accent = RgbColor(definition.AccentRgb);
+                bool interrupt = definition.Role == SummonRole.Ambush || definition.Category == SummonCategory.Dog || definition.Category == SummonCategory.Panther;
+                if (definition.Category == SummonCategory.Bird || definition.Category == SummonCategory.Dragon)
+                {
+                    damage *= 1.25f;
+                    Ring(target.X, G - target.Y - 5, 64, accent, .35f, target.Z);
+                    Burst(target.X, G - target.Y - 60, 12, accent, 230, 4, -120, .45f, target.Z);
+                }
+                if (definition.Category == SummonCategory.Dog && definition.Id == "ninja-dog-pack" || definition.Id == "wolf-pack") damage *= 1.65f;
+                if (interrupt && !target.Boss && target.St == 1) { target.St = 3; target.Tm = .7f; target.Vx = 0; }
+                HitE(target, damage, Sg(target.X - summon.X) * (definition.Role == SummonRole.Tank ? 620 : 350));
+                if ((definition.Category == SummonCategory.Snake || definition.Id == "ancient-serpent") && !target.Dead)
+                { target.PoisonT = .9f; target.PoisonDmg = 2f * upgrades.DamageMultiplier; target.PoisonCd = .3f; if (!target.Boss) { target.St = 3; target.Tm = .45f; } }
+                if (definition.Category == SummonCategory.Toad || definition.Id == "giant-toad-warrior") summon.LeapT = .45f;
+            }
+            if (target != null && summon.SpecialCd <= 0 && (definition.Role == SummonRole.Legendary || definition.Id == "giant-battle-toad" || definition.Id == "giant-turtle"))
+                SummonSpecial(summon, target);
+        }
+
+        void SummonSpecial(SummonedCompanion summon, Foe target)
+        {
+            SummoningDefinition definition = summon.Definition;
+            Color accent = RgbColor(definition.AccentRgb);
+            bool shadow = definition.Id == "shadow-emperor" || definition.Id == "shadow-beast";
+            float radius = definition.Id == "shadow-emperor" ? 360 : definition.SpecialDamage > 150 ? 260 : 190;
+            float damage = definition.SpecialDamage * summon.Upgrades.SpecialDamageMultiplier;
+            summon.SpecialCd = definition.Id == "shadow-emperor" ? 8f : 11f;
+            Ring(summon.X, G - summon.Y - 10, radius, shadow ? new Color(255, 32, 62) : accent, .75f, summon.Z);
+            Burst(summon.X, G - summon.Y - 55, shadow ? 70 : 38, shadow ? new Color(105, 5, 26) : accent,
+                shadow ? 540 : 390, shadow ? 7 : 5, -100, .75f, summon.Z);
+            foreach (var foe in en)
+            {
+                if (foe.Dead || DistXZ(foe.X, foe.Z, summon.X, summon.Z) > radius) continue;
+                HitE(foe, damage, Sg(foe.X - summon.X) * (shadow ? 720 : 520));
+                if ((definition.Category == SummonCategory.Snake || definition.Id == "ancient-serpent") && !foe.Dead)
+                { foe.PoisonT = 1.2f; foe.PoisonDmg = 3f * summon.Upgrades.DamageMultiplier; foe.PoisonCd = .3f; if (!foe.Boss) { foe.St = 3; foe.Tm = .65f; } }
+            }
+            shake = Math.Max(shake, shadow ? 32 : 22);
+            summon.SpecialCd = definition.Id == "shadow-emperor" ? 8f : 11f;
+        }
+
+        static Color RgbColor(int rgb)
+        {
+            return new Color((byte)((rgb >> 16) & 255), (byte)((rgb >> 8) & 255), (byte)(rgb & 255));
+        }
+
+#if DEBUG
+        public void SetTestMode(bool enabled)
+        {
+            if (testMode == enabled) return;
+            string previousState = state;
+            SaveProgression();
+            testMode = enabled;
+            LoadActiveProgression();
+            LoadLevel(lv, 250);
+            state = previousState == "title" || previousState == "end" ? previousState : "play";
+            banS = testMode ? "TEST MODE ENABLED" : "NORMAL MODE";
+            banT = 2f;
+        }
+#endif
+
+        bool HasEye(string id)
+        {
+            return progression != null && shopService != null &&
+                progression.Profile.EquippedEyeId == id && shopService.IsOwned("eye." + id);
+        }
+
+        bool SpendEnergy(int amount)
+        {
+            if (P.En < amount) { banS = "NEED " + amount + " SOUL ENERGY"; banT = 1.2f; return false; }
+            P.En -= amount; return true;
+        }
+
+        Vector3 PlayerWorldPosition() { return new Vector3(P.X, G - P.Y, P.Z); }
+        Vector3 FoeWorldPosition(Foe foe) { return new Vector3(foe.X, G - foe.Y, foe.Z); }
+
+        Foe NearestEyeTarget(float range)
+        {
+            Foe nearest = null; float best = range;
+            foreach (Foe foe in en)
+            {
+                if (foe.Dead) continue;
+                float distance = Vector3.Distance(PlayerWorldPosition(), FoeWorldPosition(foe));
+                if (distance < best) { best = distance; nearest = foe; }
+            }
+            return nearest;
+        }
+
+        void UseEyeQ()
+        {
+            string eye = progression.Profile.EquippedEyeId;
+            if (!HasEye(eye)) { CastShuriken(); return; }
+            if (eye == "rinnegan") { AlmightyPush(); return; }
+            if (eye == "kakashi") { CastKakashiChakra(); return; }
+            if (eye == "sharingan" || eye == "mangekyo" || eye == "ems") { CastFireball(); return; }
+            CastShuriken();
+        }
+
+        void UseEyeE()
+        {
+            string eye = progression.Profile.EquippedEyeId;
+            if (!HasEye(eye)) return;
+            if (eye == "byakugan")
+            {
+                if (eyeCooldown > 0 || !SpendEnergy(28)) return;
+                eyeCooldown = 13f; rotationT = 6f; Ring(P.X, P.Y - 70, 145, new Color(115, 235, 255), .6f, P.Z);
+                Burst(P.X, P.Y - 70, 70, new Color(115, 235, 255), 340, 4, 0, .55f, P.Z); banS = "BYAKUGAN ROTATION"; banT = 1.4f;
+            }
+            else if (eye == "jougan")
+            {
+                if (eyeCooldown > 0 || !SpendEnergy(35)) return;
+                eyeCooldown = 16f; freezeT = 1.5f; flash = .24f; Ring(P.X, P.Y - 70, 360, new Color(120, 245, 255), .9f, P.Z);
+                Burst(P.X, P.Y - 70, 90, new Color(130, 245, 255), 420, 4, 0, .85f, P.Z); banS = "JOUGAN — TIME FROZEN"; banT = 1.5f;
+            }
+            else if (eye == "mangekyo") CastGenjutsu();
+            else if (eye == "ems") ActivateSusanoo();
+            else { banS = "NO E POWER FOR THIS EYE"; banT = 1.1f; }
+        }
+
+        void UseEyeF()
+        {
+            string eye = progression.Profile.EquippedEyeId;
+            if (!HasEye(eye)) { CastKenjutsu(); return; }
+            if (eye == "byakugan")
+            {
+                byakuganScout = !byakuganScout;
+                if (byakuganScout) { scoutX = P.X; scoutZ = P.Z; camYaw = -MathHelper.PiOver2; }
+                else { cam = Cl(P.X - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)); camZ = P.Z; camY = 0; }
+                banS = byakuganScout ? "BYAKUGAN SCOUT — WASD MOVE · F RETURN" : "SCOUT CAMERA RETURNED"; banT = 1.6f;
+            }
+            else if (eye == "jougan")
+            {
+                futureVision = !futureVision; banS = futureVision ? "JOUGAN FUTURE VISION" : "FUTURE VISION OFF"; banT = 1.4f;
+            }
+            else if (eye == "kakashi")
+            {
+                string[] types = { "fire", "water", "wind", "earth", "lightning" };
+                int index = Array.IndexOf(types, progression.Profile.EquippedChakraId);
+                progression.Profile.EquippedChakraId = types[(index + 1 + types.Length) % types.Length];
+                SaveProgression(); banS = "CHAKRA: " + progression.Profile.EquippedChakraId.ToUpperInvariant(); banT = 1.2f;
+            }
+            else CastKenjutsu();
+        }
+
+        float UpgradeMultiplier(string id) { return 1f + progression.GetUpgradeLevel(id) * .14f; }
+
+        Vector2 CameraAim()
+        {
+            float x = -MathF.Sin(camYaw), z = -MathF.Cos(camYaw);
+            float length = Math.Max(.001f, MathF.Sqrt(x * x + z * z));
+            return new Vector2(x / length, z / length);
+        }
+
+        void CastShuriken()
+        {
+            AbilityDefinition ability = AbilityCatalog.Get("shuriken");
+            if (!progression.IsUsable(ability.Id)) { banS = "SHURIKEN LOCKED — TAB FOR REQUIREMENTS"; banT = 1.2f; return; }
+            if (shurikenCd > 0) { banS = "SHURIKEN COOLDOWN"; banT = .8f; return; }
+            if (!SpendEnergy(ability.ResourceCost)) return;
+            shurikenCd = ability.CooldownSeconds * Math.Max(.55f, 1 - progression.GetUpgradeLevel(ability.Id) * .07f);
+            Vector2 aim = CameraAim(); float yaw = MathF.Atan2(aim.Y, aim.X);
+            for (int i = -1; i <= 1; i++)
+            {
+                float angle = yaw + i * .13f;
+                proj.Add(new Proj { K = "shuriken", Own = true, X = P.X + aim.X * 40, Y = P.Y - 76, Z = P.Z + aim.Y * 40,
+                    Vx = MathF.Cos(angle) * 1100, Vy = 0, Vz = MathF.Sin(angle) * 1100, L = 1.15f, R = 17,
+                    Dmg = 14 * UpgradeMultiplier(ability.Id) });
+            }
+            Burst(P.X + aim.X * 40, P.Y - 76, 12, new Color(218, 232, 255), 240, 3, 0, .35f, P.Z + aim.Y * 40);
+        }
+
+        void CastKenjutsu()
+        {
+            AbilityDefinition ability = AbilityCatalog.Get("kenjutsu");
+            if (!progression.IsUsable(ability.Id)) { banS = "KENJUTSU LOCKED — TAB FOR REQUIREMENTS"; banT = 1.2f; return; }
+            if (kenjutsuCd > 0) { banS = "KENJUTSU COOLDOWN"; banT = .8f; return; }
+            if (!SpendEnergy(ability.ResourceCost)) return;
+            kenjutsuCd = ability.CooldownSeconds * Math.Max(.55f, 1 - progression.GetUpgradeLevel(ability.Id) * .07f);
+            Vector2 aim = CameraAim(); P.Yaw = MathF.Atan2(aim.Y, aim.X); P.X = Cl(P.X + aim.X * 85, 40, bossDead ? L.GateX + 60 : L.GateX - 90);
+            Ring(P.X, P.Y - 65, 205, new Color(190, 220, 255), .35f, P.Z); Arc(P.X, P.Y - 75, P.F, 235, WH, .35f, -.15f, P.Z);
+            foreach (Foe foe in en)
+            {
+                Vector3 delta = FoeWorldPosition(foe) - PlayerWorldPosition();
+                float forward = delta.X * aim.X + delta.Z * aim.Y;
+                if (!foe.Dead && forward > 0 && forward < 310 && Math.Abs(delta.Z * aim.X - delta.X * aim.Y) < 170 && Math.Abs(delta.Y) < 180)
+                    HitE(foe, 38 * UpgradeMultiplier(ability.Id), (int)MathF.Sign(aim.X) * 500);
+            }
+            banS = "KENJUTSU CUT"; banT = 1f;
+        }
+
+        void ActivateHiddenJutsu()
+        {
+            AbilityDefinition ability = AbilityCatalog.Get("hidden");
+            if (!progression.IsUsable(ability.Id)) { banS = "HIDDEN JUTSU LOCKED — TAB FOR REQUIREMENTS"; banT = 1.2f; return; }
+            if (hiddenCd > 0) { banS = "HIDDEN JUTSU COOLDOWN"; banT = .8f; return; }
+            if (!SpendEnergy(20)) return;
+            hiddenCd = 9f * Math.Max(.55f, 1 - progression.GetUpgradeLevel(ability.Id) * .07f);
+            hiddenT = 2.3f + progression.GetUpgradeLevel(ability.Id) * .22f; P.Inv = Math.Max(P.Inv, hiddenT);
+            Burst(P.X, P.Y - 70, 48, new Color(138, 92, 255), 310, 4, 0, .65f, P.Z); banS = "HIDDEN JUTSU — EVADING"; banT = 1f;
+        }
+
+        void UseTeleportationKunai()
+        {
+            AbilityDefinition ability = AbilityCatalog.Get("kunai");
+            if (!progression.IsUsable(ability.Id)) { banS = "TELEPORTATION KUNAI LOCKED — TAB FOR REQUIREMENTS"; banT = 1.2f; return; }
+            if (kunaiCd > 0) { banS = "KUNAI COOLDOWN"; banT = .8f; return; }
+            if (!SpendEnergy(18)) return;
+            Foe target = NearestEyeTarget(1050); Vector2 aim = CameraAim();
+            float x = target == null ? P.X + aim.X * 470 : target.X - aim.X * 130;
+            float z = target == null ? P.Z + aim.Y * 470 : target.Z - aim.Y * 130;
+            x = Cl(x, 40, L.GateX - 90); z = Cl(z, -250, 470);
+            float floor = FloorBelow(x, P.Y + 8, z);
+            if (floor > G + 5) { P.En = Math.Min(100, P.En + 18); banS = "NO SAFE KUNAI LANDING"; banT = 1f; return; }
+            P.X = x; P.Z = z; P.Y = floor; P.Vx = P.Vy = P.Vz = 0; P.Inv = Math.Max(P.Inv, .6f);
+            kunaiCd = 7f * Math.Max(.55f, 1 - progression.GetUpgradeLevel(ability.Id) * .07f);
+            Burst(x, floor - 70, 34, new Color(130, 220, 255), 400, 4, 0, .55f, z);
+            if (target != null && DistXZ(target.X, target.Z, x, z) < 230) HitE(target, 30 * UpgradeMultiplier(ability.Id), P.F * 400);
+            banS = "TELEPORTATION KUNAI"; banT = 1f;
+        }
+
+        void AlmightyPush()
+        {
+            if (pushCooldown > 0) { banS = "ALMIGHTY PUSH COOLDOWN"; banT = 1f; return; }
+            if (!SpendEnergy(40)) return;
+            const float radius = 1000f; pushCooldown = 10f; Vector3 origin = PlayerWorldPosition();
+            Ring(P.X, P.Y - 70, radius, new Color(196, 128, 255), .9f, P.Z);
+            Ring(P.X, P.Y - 70, radius * .66f, Color.White, .55f, P.Z);
+            Burst(P.X, P.Y - 70, 150, new Color(180, 115, 255), 850, 5, 0, .9f, P.Z); shake = 28;
+            foreach (Foe foe in en)
+            {
+                if (foe.Dead || Vector3.Distance(origin, FoeWorldPosition(foe)) > radius) continue;
+                if (foe.Boss) { HitE(foe, 90, Sg(foe.X - P.X) * 900); foe.Vz += Sg(foe.Z - P.Z) * 650; }
+                else HitE(foe, 100000, Sg(foe.X - P.X) * 1050);
+            }
+            for (int i = 0; i < L.Spikes.Count; i++)
+            {
+                Vector2 spike = L.Spikes[i];
+                if (Vector3.Distance(origin, new Vector3((spike.X + spike.Y) * .5f, G, P.Z)) <= radius)
+                    disabledSpikeIndices.Add(i);
+            }
+            foreach (Proj projectile in proj)
+                if (!projectile.Own && Vector3.Distance(origin, new Vector3(projectile.X, G - projectile.Y, projectile.Z)) <= radius)
+                    projectile.L = 0;
+            banS = "RINNEGAN — ALMIGHTY PUSH"; banT = 1.8f;
+        }
+
+        void CastFireball()
+        {
+            if (eyeCooldown > 0) { banS = "EYE POWER COOLDOWN"; banT = .9f; return; }
+            if (!SpendEnergy(30)) return;
+            eyeCooldown = 5.5f;
+            Vector2 aim = CameraAim(); Vector3 direction = new Vector3(aim.X, 0, aim.Y);
+            proj.Add(new Proj { K = "fire", Own = true, X = P.X + direction.X * 48, Y = P.Y - 82, Z = P.Z + direction.Z * 48,
+                Vx = direction.X * 870, Vy = 0, Vz = direction.Z * 870, L = 1.45f, R = 48, Dmg = 52 });
+            Burst(P.X + direction.X * 54, P.Y - 82, 36, new Color(255, 105, 32), 360, 5, 0, .55f, P.Z + direction.Z * 54);
+            banS = "FIREBALL JUTSU"; banT = 1.1f;
+        }
+
+        void CastGenjutsu()
+        {
+            if (genjutsuCooldown > 0) { banS = "GENJUTSU COOLDOWN"; banT = .9f; return; }
+            if (!SpendEnergy(38)) return;
+            Foe target = NearestEyeTarget(1250f);
+            if (target == null) { P.En = Math.Min(100, P.En + 38); banS = "NO ENEMY IN GENJUTSU RANGE"; banT = 1.1f; return; }
+            genjutsuCooldown = 14f; target.GenjutsuT = target.Boss ? 1.4f : 4.5f; target.St = 3; target.Tm = target.GenjutsuT;
+            Ring(target.X, target.Y - 70, 95, new Color(195, 88, 255), .7f, target.Z);
+            Burst(target.X, target.Y - 70, 25, new Color(195, 88, 255), 220, 4, 0, .6f, target.Z);
+            banS = target.Boss ? "BOSS RESISTS GENJUTSU" : "GENJUTSU — TARGET DISABLED"; banT = 1.5f;
+        }
+
+        void ActivateSusanoo()
+        {
+            if (susanooCd > 0) { banS = "SUSANOO COOLDOWN"; banT = 1f; return; }
+            if (!SpendEnergy(42)) return;
+            susanooT = shopService.GetSusanooDuration(); susanooCd = susanooT + 12f;
+            Ring(P.X, P.Y - 80, 180, new Color(183, 125, 255), .8f, P.Z);
+            Burst(P.X, P.Y - 80, 80, new Color(168, 102, 255), 440, 5, -40, .8f, P.Z);
+            banS = "SUSANOO AWAKENED"; banT = 1.8f;
+        }
+
+        void CastKakashiChakra()
+        {
+            if (eyeCooldown > 0) { banS = "CHAKRA JUTSU COOLDOWN"; banT = .9f; return; }
+            string type = progression.Profile.EquippedChakraId ?? "fire";
+            if (type == "fire") { CastFireball(); return; }
+            if (!SpendEnergy(28)) return;
+            eyeCooldown = 4.5f;
+            if (type == "wind")
+            {
+                Vector2 aim = CameraAim(); Ring(P.X + aim.X * 180, P.Y - 60, 360, new Color(190, 240, 255), .55f, P.Z + aim.Y * 180);
+                foreach (Foe foe in en)
+                {
+                    float dx = foe.X - P.X, dz = foe.Z - P.Z, forward = dx * aim.X + dz * aim.Y;
+                    if (!foe.Dead && forward > 0 && forward < 410 && Math.Abs(dx * aim.Y - dz * aim.X) < 250) HitE(foe, 42, (int)MathF.Sign(aim.X) * 700);
+                }
+            }
+            else if (type == "earth")
+            {
+                Vector2 aim = CameraAim();
+                for (int i = -1; i <= 1; i++)
+                {
+                    float offset = 200 + i * 120, x = P.X + aim.X * offset, z = P.Z + aim.Y * offset;
+                    Ring(x, G - 10, 70, new Color(176, 130, 92), .5f, z);
+                    foreach (Foe foe in en) if (!foe.Dead && DistXZ(foe.X, foe.Z, x, z) < 145) HitE(foe, 36, (int)MathF.Sign(aim.X) * 300);
+                }
+            }
+            else
+            {
+                Vector2 aim = CameraAim();
+                string projectileType = type == "water" ? "water" : "lightning";
+                float damage = type == "water" ? 38 : 68;
+                float speed = type == "water" ? 760 : 1150;
+                proj.Add(new Proj { K = projectileType, Own = true, X = P.X + aim.X * 50, Y = P.Y - 78, Z = P.Z + aim.Y * 50,
+                    Vx = aim.X * speed, Vy = 0, Vz = aim.Y * speed, L = 1.25f, R = 38, Dmg = damage });
+                Burst(P.X + aim.X * 54, P.Y - 78, 28, type == "water" ? new Color(90, 185, 255) : new Color(195, 230, 255), 340, 4, 0, .5f, P.Z + aim.Y * 54);
+            }
+            banS = type.ToUpperInvariant() + " RELEASE"; banT = 1.1f;
+        }
+
+        void HandleShopInput()
+        {
+            if (Pr(Keys.Up)) selectedShopIndex = (selectedShopIndex + PremiumShopCatalog.All.Count - 1) % PremiumShopCatalog.All.Count;
+            if (Pr(Keys.Down)) selectedShopIndex = (selectedShopIndex + 1) % PremiumShopCatalog.All.Count;
+            ShopItem item = PremiumShopCatalog.All[selectedShopIndex]; string reason;
+            if (Pr(Keys.B)) { shopService.TryPurchase(item.Id, out reason); banS = reason.ToUpperInvariant(); banT = 1.4f; SaveProgression(); }
+            if (Pr(Keys.Enter)) { shopService.TryEquip(item.Id, out reason); banS = reason.ToUpperInvariant(); banT = 1.4f; SaveProgression(); }
+            if (Pr(Keys.U)) { shopService.TryUpgradeSusanoo(out reason); banS = reason.ToUpperInvariant(); banT = 1.4f; SaveProgression(); }
+            if (Pr(Keys.Tab)) shopMenuOpen = false;
+        }
+
+        void HandleAbilityMenuInput()
+        {
+            if (Pr(Keys.Up)) selectedAbilityIndex = (selectedAbilityIndex + AbilityCatalog.All.Count - 1) % AbilityCatalog.All.Count;
+            if (Pr(Keys.Down)) selectedAbilityIndex = (selectedAbilityIndex + 1) % AbilityCatalog.All.Count;
+            if (Pr(Keys.U))
+            {
+                string reason;
+                AbilityDefinition ability = AbilityCatalog.All[selectedAbilityIndex];
+                progression.TryUpgrade(ability.Id, out reason);
+                banS = reason.ToUpperInvariant(); banT = 1.3f; SaveProgression();
+            }
+        }
 
         void LoadLevel(int n, float sx, float sz = 110)
         {
-            lv = n; L = LevelGen.Make(n); L.Foes.RemoveAll(f => f.X < sx + 150 && !f.Boss); en = L.Foes;
+            lv = n; L = LevelGen.Make(n); L.Foes.RemoveAll(f => f.X < sx + 150 && !f.Boss); en = L.Foes; abilityMenuOpen = false; summoningMenuOpen = false;
+            shopMenuOpen = false; disabledSpikeIndices.Clear(); byakuganScout = false; futureVision = false; freezeT = rotationT = susanooT = 0;
             foreach (var e in en) e.Z = 110;
             proj.Clear(); clones.Clear(); pt.Clear(); fx.Clear(); trail.Clear();
+            summonedCompanion = null; summonCooldown = 0;
             P = new Pl { X = sx, Y = G, Z = sz, F = 1, Hp = 100, En = 50 }; checkX = sx; checkZ = sz; lit = new bool[L.Checks.Count]; for (int i = 0; i < lit.Length; i++) lit[i] = L.Checks[i] <= sx;
             bossDead = false; ult = 0; ultHit = true; cam = Cl(sx - W * .5f, 0, L.GateX + 400 - W); camY = 0; camZ = sz; banS = "LEVEL " + (n + 1) + "  -  " + L.Th.Name; banT = 3.2f;
             PlaySong(L.Th.Style);
@@ -105,23 +760,42 @@ namespace Kadaya
         // ---------- combat ----------
         void Die()
         {
-            if (P.Dead) return; P.Dead = true; P.Hp = 0; state = "dead"; Burst(P.X, P.Y - 60, 90, VI, 650, 6, 200, 1.7f, P.Z); for (int i = 0; i < 18; i++) Smoke(P.X, P.Y - 40, Rf(-120, 120), P.Z); shake = 30; Sfx("kill", P.X); if (musInst != null) musInst.Volume = .15f;
+            if (P.Dead) return; DismissSummon(false); P.Dead = true; P.Hp = 0; state = "dead"; Burst(P.X, P.Y - 60, 90, VI, 650, 6, 200, 1.7f, P.Z); for (int i = 0; i < 18; i++) Smoke(P.X, P.Y - 40, Rf(-120, 120), P.Z); shake = 30; Sfx("kill", P.X); if (musInst != null) musInst.Volume = .15f;
         }
         void HurtP(float d, int dir)
         {
             if (P.Inv > 0 || P.Dash > 0 || P.Dead || ult > 0) return;
+            if (rotationT > 0)
+            {
+                Burst(P.X, P.Y - 70, 12, new Color(110, 235, 255), 250, 3, 0, .35f, P.Z);
+                Ring(P.X, P.Y - 70, 120, new Color(110, 235, 255), .25f, P.Z);
+                return;
+            }
+            if (susanooT > 0) d *= .72f;
+            if (summonedCompanion != null)
+            {
+                string id = summonedCompanion.Definition.Id;
+                bool guardian = summonedCompanion.Definition.Role == SummonRole.Tank || id == "giant-toad-warrior" || id == "toad-boss" || id == "colossal-turtle-guardian";
+                float share = guardian ? .42f : .18f;
+                float absorbed = d * share;
+                summonedCompanion.Hp -= absorbed;
+                d -= absorbed;
+                if (summonedCompanion.Hp <= 0) DismissSummon(false);
+            }
             P.Hp -= d; P.Inv = .9f; P.Vx = dir * 380; P.Vy = -300; P.Ground = false; P.Cb = 0; P.Atk = 0; P.Chg = 0; shake = 16; flash = .35f; hitstop = .06f;
             Burst(P.X, P.Y - 70, 24, RD, 420, 4, 600, .6f, P.Z); Sfx("hurt", P.X); if (P.Hp <= 0) Die();
         }
         void HitE(Foe e, float d, float kx)
         {
             if (e.Dead) return;
+            if (susanooT > 0) d *= 1.6f;
             e.Aggro = true; e.Hp -= d; e.Flash = .1f; e.Vx = kx * (e.Boss ? .15f : 1); if (!e.Boss) e.Vy = -220; if (e.St == 1 && !e.Boss) { e.St = 3; e.Tm = .5f; }
             P.En = Math.Min(100, P.En + d * .3f); hitstop = Math.Max(hitstop, .05f); shake = Math.Max(shake, d > 30 ? 18 : 8);
             Burst(e.X, e.Y - 60 * e.S, 16, WH, 450, 3, 500, .35f, e.Z); Burst(e.X, e.Y - 60 * e.S, 12, RD, 320, 4, 700, .5f, e.Z); Sfx("hit", e.X);
             if (e.Hp <= 0)
             {
                 e.Dead = true; kills++; Burst(e.X, e.Y - 60 * e.S, 30, VI, 160, 6, -260, 1.5f, e.Z); Burst(e.X, e.Y - 60 * e.S, 34, WH, 520, 3, 400, .5f, e.Z);
+                NotifyAbilityUnlocks(progression.RecordEnemyDefeat()); AwardCurrency(e.Boss); SaveProgression();
                 Ring(e.X, e.Y - 60, 100, VI, .6f, e.Z); shake = Math.Max(shake, e.Boss ? 38 : 14); Sfx("kill", e.X);
                 if (e.Boss) { bossDead = true; hitstop = .4f; flash = .9f; banS = "BOSS DEFEATED - THE SOUL GATE OPENS"; banT = 3.5f; Ring(e.X, e.Y - 100, 900, OR, 1f, e.Z); Sfx("boom", e.X); }
             }
@@ -129,8 +803,13 @@ namespace Kadaya
         void SlashHit()
         {
             float r = P.Cb == 2 ? 240 : 185, dm = new[] { 12f, 14f, 28f }[P.Cb];
-            Arc(P.X, P.Y - 70, P.F, r * (P.Cb == 2 ? 1.1f : .9f), P.Cb == 2 ? VI : CY, .25f, new[] { -.35f, .35f, 0f }[P.Cb], P.Z);
-            if (P.Cb == 2) { Ring(P.X, P.Y - 60, 190, VI, .4f, P.Z); Burst(P.X + P.F * 90, P.Y - 70, 28, VI, 520, 4, 600, .6f, P.Z); }
+            string weapon = progression.Profile.EquippedWeaponId;
+            float weaponBonus = weapon == "lightning" ? 1.5f : weapon == "chakra" ? 1.3f : weapon == "katana" ? 1.18f : 1f;
+            float sageBonus = sageT > 0 ? (progression.Profile.EquippedSageModeId == "sage.sixpaths" ? 1.65f : 1.35f) : 1f;
+            dm *= UpgradeMultiplier("scythe") * weaponBonus * sageBonus;
+            Color slashColor = weapon == "lightning" ? new Color(180, 230, 255) : weapon.Length > 0 ? CY : P.Cb == 2 ? VI : CY;
+            Arc(P.X, P.Y - 70, P.F, r * (P.Cb == 2 ? 1.1f : .9f), slashColor, .25f, new[] { -.35f, .35f, 0f }[P.Cb], P.Z);
+            if (P.Cb == 2) { Ring(P.X, P.Y - 60, 190, slashColor, .4f, P.Z); Burst(P.X + P.F * 90, P.Y - 70, 28, slashColor, 520, 4, 600, .6f, P.Z); }
             Sfx(P.Cb == 2 ? "slash3" : "slash", P.X);
             foreach (var e in en) if (DistXZ(e.X, e.Z, P.X, P.Z) < r + 20 * e.S && Math.Abs(e.Y - P.Y) < 160) HitE(e, dm * (1 + lv * .05f), P.F * (P.Cb == 2 ? 700 : 380));
             foreach (var p in proj) if (!p.Own && p.K != "pillar" && DistXZ(p.X, p.Z, P.X, P.Z) < r && Math.Abs(p.Y - (P.Y - 70)) < 120) { p.L = 0; P.En = Math.Min(100, P.En + 6); Burst(p.X, p.Y, 14, CY, 300, 3, 600, .6f, p.Z); }
@@ -151,7 +830,23 @@ namespace Kadaya
         // ---------- enemies ----------
         void UpdE(Foe e, float dt)
         {
+            if (e.GenjutsuT > 0)
+            {
+                e.GenjutsuT = Math.Max(0, e.GenjutsuT - dt);
+                e.Vx = 0; e.Vz = 0; e.St = 3; e.Tm = Math.Max(e.Tm, .1f);
+                return;
+            }
             float d = P.X - e.X, dz = P.Z - e.Z, ad = DistXZ(P.X, P.Z, e.X, e.Z); e.Ph += dt; e.Flash -= dt;
+            if (e.PoisonT > 0)
+            {
+                e.PoisonT = Math.Max(0, e.PoisonT - dt); e.PoisonCd -= dt;
+                if (e.PoisonCd <= 0) { e.PoisonCd = .3f; if (!e.Dead) HitE(e, e.PoisonDmg, 0); }
+            }
+            if (e.BurnT > 0)
+            {
+                e.BurnT = Math.Max(0, e.BurnT - dt); e.BurnCd -= dt;
+                if (e.BurnCd <= 0) { e.BurnCd = .35f; if (!e.Dead) HitE(e, e.BurnDmg, 0); }
+            }
             if (!e.Aggro) { if (ad < (e.Boss ? 950 : 680) && !P.Dead) e.Aggro = true; else { e.F = d > 0 ? 1 : -1; return; } }
             if (e.St != 2 && e.St != 5) { e.F = d >= 0 ? 1 : -1; e.Yaw = MathF.Atan2(dz, d); }
             e.Vy += 2300 * dt; e.Y += e.Vy * dt; if (e.Y >= G) { e.Y = G; if (e.Vy > 0) e.Vy = 0; }
@@ -229,13 +924,51 @@ namespace Kadaya
         void UpdatePlay(float dt)
         {
             if (banT > 0) banT -= dt;
+            if (abilityMenuOpen) HandleAbilityMenuInput();
+            if (shopMenuOpen) HandleShopInput();
+            else if (summoningMenuOpen) HandleSummoningMenuInput();
+            else if (!P.Dead)
+            {
+                if (Pr(Keys.G)) SummonEquipped();
+                if (Pr(Keys.X)) DismissSummon(true);
+            }
+            eyeCooldown = Math.Max(0, eyeCooldown - dt); pushCooldown = Math.Max(0, pushCooldown - dt);
+            genjutsuCooldown = Math.Max(0, genjutsuCooldown - dt); susanooCd = Math.Max(0, susanooCd - dt);
+            sageCd = Math.Max(0, sageCd - dt); if (susanooT > 0) susanooT = Math.Max(0, susanooT - dt);
+            shurikenCd = Math.Max(0, shurikenCd - dt); kenjutsuCd = Math.Max(0, kenjutsuCd - dt);
+            hiddenCd = Math.Max(0, hiddenCd - dt); kunaiCd = Math.Max(0, kunaiCd - dt); hiddenT = Math.Max(0, hiddenT - dt);
+            if (!shopMenuOpen && !summoningMenuOpen && !P.Dead)
+            {
+                if (Pr(Keys.Q)) UseEyeQ();
+                if (Pr(Keys.E)) UseEyeE();
+                if (Pr(Keys.F)) UseEyeF();
+                if (Pr(Keys.C)) ActivateHiddenJutsu();
+                if (Pr(Keys.R)) UseTeleportationKunai();
+                if (Pr(Keys.Z))
+                {
+                    string sage = progression.Profile.EquippedSageModeId;
+                    if (sage != "sage.toad" && sage != "sage.snake" && sage != "sage.sixpaths") { banS = "EQUIP A SAGE MODE IN THE SHOP"; banT = 1f; }
+                    else if (sageCd <= 0) { sageT = sage == "sage.sixpaths" ? 12f : 10f; sageCd = 24f; banS = sage.ToUpperInvariant() + " ACTIVE"; banT = 1.2f; }
+                }
+            }
+            float worldDt = dt;
+            if (freezeT > 0) { worldDt = Math.Max(0, dt - freezeT); freezeT = Math.Max(0, freezeT - dt); }
             float side = (Dn(Keys.D) ? 1 : 0) - (Dn(Keys.A) ? 1 : 0), forward = (Dn(Keys.W) ? 1 : 0) - (Dn(Keys.S) ? 1 : 0);
             float fwdX = -MathF.Sin(camYaw), fz = -MathF.Cos(camYaw), rx = MathF.Cos(camYaw), rz = -MathF.Sin(camYaw);
             float mx = rx * side + fwdX * forward, mz = rz * side + fz * forward, ml = MathF.Sqrt(mx * mx + mz * mz);
             if (ml > 1) { mx /= ml; mz /= ml; }
-            if (!P.Dead)
+            if (byakuganScout)
             {
-                P.Inv -= dt; P.Dcd -= dt; P.Kcd -= dt; P.CbT -= dt; bool was = P.Ground; float pvy = P.Vy;
+                // The scout camera leaves the player in place while the world keeps moving.
+                // Keep the stationary body safe until scouting ends.
+                P.Inv = Math.Max(P.Inv, .15f);
+                scoutX = Cl(scoutX + side * 720 * dt, 0, L.GateX + 250);
+                scoutZ = Cl(scoutZ + forward * 620 * dt, -260, 480);
+                cam = Cl(scoutX - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)); camZ = scoutZ; camY = 0;
+            }
+            if (!P.Dead && !summoningMenuOpen && !shopMenuOpen && !byakuganScout)
+            {
+                P.Inv -= dt; P.Dcd -= dt; P.Kcd -= dt; P.CloneCd -= dt; P.CbT -= dt; bool was = P.Ground; float pvy = P.Vy;
                 if (P.Dash > 0) { P.Dash -= dt; P.X += MathF.Cos(P.Yaw) * 1200 * dt; P.Z += MathF.Sin(P.Yaw) * 1200 * dt; P.Vy = 0; fx.Add(new Fx { K = "ghost", X = P.X, Y = P.Y, Z = P.Z, F = P.F, L = .3f, M = .3f, C = PU }); }
                 else
                 {
@@ -255,8 +988,16 @@ namespace Kadaya
                 if (P.Ground && !was && pvy > 450) { Sfx("land", P.X); for (int i = 0; i < 6; i++) pt.Add(new Part { X = P.X + Rf(-20, 20), Y = P.Y - 4, Z = P.Z + Rf(-20, 20), Vx = Rf(-80, 80), Vy = Rf(-70, -15), L = .8f, M = .8f, Sz = 12, C = new Color(10, 5, 18), G = -30, Dk = true }); }
                 if (P.Y > G + 380) { Sfx("fall", P.X); Die(); }
                 P.X = Cl(P.X, 40, bossDead ? L.GateX + 60 : L.GateX - 90); P.Z = Cl(P.Z, -260, 480); P.Run = P.Ground && MathF.Sqrt(P.Vx * P.Vx + P.Vz * P.Vz) > 60;
-                if (P.Ground && P.Y >= G - 6) foreach (var sp in L.Spikes) if (P.X > sp.X && P.X < sp.Y)
-                    for (float z = -250; z <= 450; z += 70) if (Math.Abs(P.Z - z) < 34) { HurtP(30, -P.F); P.Vy = -620; break; }
+                if (P.Ground && P.Y >= G - 6)
+                    for (int spikeIndex = 0; spikeIndex < L.Spikes.Count; spikeIndex++)
+                    {
+                        if (disabledSpikeIndices.Contains(spikeIndex)) continue;
+                        Vector2 spike = L.Spikes[spikeIndex];
+                        if (P.X <= spike.X || P.X >= spike.Y) continue;
+                        for (float z = -250; z <= 450; z += 70)
+                            if (Math.Abs(P.Z - z) < 34) { HurtP(30, -P.F); P.Vy = -620; break; }
+                        break;
+                    }
                 if ((P.Run || P.Dash > 0 || P.Atk > 0) && rnd.NextDouble() < .6) pt.Add(new Part { X = P.X - MathF.Cos(P.Yaw) * Rf(10, 34), Y = P.Y - Rf(0, 50), Z = P.Z - MathF.Sin(P.Yaw) * Rf(10, 34), Vx = Rf(-20, 20), Vy = Rf(-70, -15), L = .8f, M = .8f, Sz = 12, C = new Color(10, 5, 18), G = -30, Dk = true });
                 if ((Pr(Keys.LeftShift) || Pr(Keys.RightShift)) && P.Dcd <= 0) { P.Dash = .17f; P.Dcd = .65f; P.Inv = Math.Max(P.Inv, .3f); Burst(P.X, P.Y - 60, 22, PU, 300, 4, 600, .6f, P.Z); Sfx("dash", P.X); }
                 if (P.Atk > 0)
@@ -269,37 +1010,62 @@ namespace Kadaya
                     if (P.Hit && P.AtkT > (P.Cb == 2 ? .17f : .11f)) { P.Hit = false; SlashHit(); }
                 }
                 if (mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released && P.Dash <= 0 && (P.Atk <= 0 || P.AtkT > .18f)) { P.Cb = P.CbT > 0 ? (P.Cb + 1) % 3 : 0; P.Atk = P.Cb == 2 ? .42f : .28f; P.AtkT = 0; P.Hit = true; P.CbT = .75f; }
-                if (mouseCur.RightButton == ButtonState.Pressed && mousePrev.RightButton == ButtonState.Released && P.Kcd <= 0)
+                if (mouseCur.RightButton == ButtonState.Pressed && mousePrev.RightButton == ButtonState.Released)
                 {
-                    if (P.En >= 35)
+                    AbilityDefinition rasengan = AbilityCatalog.Get("rasengan");
+                    if (!progression.IsUsable(rasengan.Id))
                     {
-                        P.En -= 35; P.Kcd = 1.1f;
+                        banS = "RASENGAN LOCKED  [TAB FOR REQUIREMENTS]"; banT = 1.2f;
+                    }
+                    else if (P.Kcd <= 0 && P.En >= rasengan.ResourceCost)
+                    {
+                        P.En -= rasengan.ResourceCost;
+                        P.Kcd = rasengan.CooldownSeconds * Math.Max(.55f, 1 - progression.GetUpgradeLevel(rasengan.Id) * .07f);
                         float dx = MathF.Cos(P.Yaw), dz = MathF.Sin(P.Yaw);
-                        proj.Add(new Proj { K = "ras", Own = true, X = P.X + dx * 42, Y = P.Y - 76, Z = P.Z + dz * 42, Vx = dx * 650, Vy = 0, Vz = dz * 650, L = 1.25f, R = 34, Dmg = 56 });
+                        proj.Add(new Proj { K = "ras", Own = true, X = P.X + dx * 42, Y = P.Y - 76, Z = P.Z + dz * 42, Vx = dx * 650, Vy = 0, Vz = dz * 650, L = 1.25f, R = 34, Dmg = 56 * UpgradeMultiplier(rasengan.Id) });
                         Burst(P.X + dx * 48, P.Y - 76, 24, CY, 360, 5, 0, .45f, P.Z + dz * 48); Sfx("ras", P.X);
                     }
-                    else { banS = "NEED 35 SOUL ENERGY"; banT = 1.1f; }
+                    else if (progression.IsUsable(rasengan.Id) && P.Kcd <= 0)
+                    { banS = "NEED " + rasengan.ResourceCost + " SOUL ENERGY"; banT = 1.1f; }
                 }
-                if (Pr(Keys.E) && P.En >= 40)
+                bool ePowerEquipped = HasEye("byakugan") || HasEye("jougan") || HasEye("mangekyo") || HasEye("ems");
+                if (Pr(Keys.E) && !ePowerEquipped)
                 {
-                    P.En -= 40;
-                    foreach (int s in new[] { -1, 1 })
+                    AbilityDefinition clone = AbilityCatalog.Get("clone");
+                    if (!progression.IsUsable(clone.Id))
                     {
-                        clones.Add(new Clone { X = P.X - MathF.Sin(P.Yaw) * s * 90, Z = P.Z + MathF.Cos(P.Yaw) * s * 90, Yaw = P.Yaw, F = P.F, L = 7, Cd = .2f });
-                        Burst(P.X, G - 60, 24, new Color(223, 233, 255), 300, 6, -100, .7f, P.Z);
+                        banS = "SHADOW CLONE LOCKED  [TAB FOR REQUIREMENTS]"; banT = 1.2f;
                     }
-                    Sfx("clone", P.X);
+                    else if (clones.Count > 0)
+                    { banS = "SHADOW CLONE ALREADY ACTIVE"; banT = 1.1f; }
+                    else if (P.CloneCd > 0)
+                    { banS = "SHADOW CLONE COOLDOWN"; banT = 1.1f; }
+                    else if (P.En >= clone.ResourceCost)
+                    {
+                        P.En -= clone.ResourceCost;
+                        P.CloneCd = clone.CooldownSeconds * Math.Max(.55f, 1 - progression.GetUpgradeLevel(clone.Id) * .07f);
+                        clones.Add(new Clone { X = P.X - MathF.Sin(P.Yaw) * 90, Z = P.Z + MathF.Cos(P.Yaw) * 90, Yaw = P.Yaw, F = P.F, L = 5 + progression.GetUpgradeLevel(clone.Id) * .4f, Cd = .2f });
+                        Burst(P.X, G - 60, 24, new Color(223, 233, 255), 300, 6, -100, .7f, P.Z);
+                        Sfx("clone", P.X);
+                    }
+                    else { banS = "NEED " + clone.ResourceCost + " SOUL ENERGY"; banT = 1.1f; }
                 }
                 // checkpoints
                 for (int i = 0; i < L.Checks.Count; i++) if (!lit[i] && P.X > L.Checks[i]) { lit[i] = true; checkX = L.Checks[i]; checkZ = P.Z; P.Hp = Math.Min(P.Mh, P.Hp + 40); Burst(checkX, G - 60, 50, L.Th.Accent, 400, 5, -200, 1.2f, P.Z); Ring(checkX, G - 60, 200, L.Th.Accent, .8f, P.Z); Sfx("check", checkX); banS = "CHECKPOINT"; banT = 1.6f; }
                 // soul pickups
                 foreach (var s in L.Souls) if (!s.Got && DistXZ(P.X, P.Z, s.X, 110) < 70 && Math.Abs(P.Y - 60 - s.Y) < 90) { s.Got = true; P.En = Math.Min(100, P.En + 15); Burst(s.X, s.Y, 20, VI, 300, 4, -100, .6f, 110); Sfx("soul", s.X); }
                 // gate
-                if (bossDead && P.X >= L.GateX - 20) { state = "win"; winT = 0; SaveLv(Math.Min(2, lv + 1)); Sfx("win", P.X); }
+                if (bossDead && P.X >= L.GateX - 20)
+                {
+                    state = "win"; winT = 0;
+                    NotifyAbilityUnlocks(progression.CompleteMission()); SaveProgression(); Sfx("win", P.X);
+                }
             }
+            if (worldDt > 0)
+            {
             if (ult > 0)
             {
-                ult -= dt;
+                ult -= worldDt;
                 if (!ultHit && ult < 1)
                 {
                     ultHit = true; flash = 1; shake = 45; foreach (var e in en) if (Math.Abs(e.X - P.X) < 1100) HitE(e, e.Boss ? 120 : 95, Sg(e.X - P.X) * 500);
@@ -307,28 +1073,29 @@ namespace Kadaya
                     Ring(P.X, P.Y - 80, 900, VI, .8f); Burst(P.X, P.Y - 80, 160, VI, 1200, 6, 0, 1);
                 }
             }
-            if (ult <= .9f) foreach (var e in en) UpdE(e, dt);
+            if (ult <= .9f) foreach (var e in en) UpdE(e, worldDt);
             en.RemoveAll(e => e.Dead);
+            UpdateSummonedCompanion(worldDt);
             foreach (var k in clones)
             {
-                k.L -= dt; k.T += dt; k.Cd -= dt; k.Mv = 0; Foe tg = null; float bd = 9e9f;
+                k.L -= worldDt; k.T += worldDt; k.Cd -= worldDt; k.Mv = 0; Foe tg = null; float bd = 9e9f;
                 foreach (var e in en) { float d = DistXZ(e.X, e.Z, k.X, k.Z); if (d < bd) { bd = d; tg = e; } }
                 if (tg != null && bd < 900)
                 {
                     float dx = tg.X - k.X, dz = tg.Z - k.Z; k.F = dx >= 0 ? 1 : -1; k.Yaw = MathF.Atan2(dz, dx);
-                    if (bd > 110) { k.X += dx / bd * 330 * dt; k.Z = Cl(k.Z + dz / bd * 330 * dt, -260, 480); k.Mv = 1; }
-                    else if (k.Cd <= 0) { k.Cd = .55f; k.At = 0; Arc(k.X + k.F * 30, G - 70, k.F, 130, new Color(223, 233, 255), .2f, 0, k.Z); HitE(tg, 10, k.F * 300); }
+                    if (bd > 110) { k.X += dx / bd * 330 * worldDt; k.Z = Cl(k.Z + dz / bd * 330 * worldDt, -260, 480); k.Mv = 1; }
+                    else if (k.Cd <= 0) { k.Cd = .55f; k.At = 0; Arc(k.X + k.F * 30, G - 70, k.F, 130, new Color(223, 233, 255), .2f, 0, k.Z); HitE(tg, 10 * UpgradeMultiplier("clone"), k.F * 300); }
                 }
-                else if (DistXZ(P.X, P.Z, k.X, k.Z) > 140) { float dx = P.X - k.X, dz = P.Z - k.Z, d = DistXZ(P.X, P.Z, k.X, k.Z); k.X += dx / d * 330 * dt; k.Z = Cl(k.Z + dz / d * 330 * dt, -260, 480); k.Yaw = MathF.Atan2(dz, dx); k.Mv = 1; }
-                if (k.At >= 0) { k.At += dt; if (k.At > .28f) k.At = -1; }
+                else if (DistXZ(P.X, P.Z, k.X, k.Z) > 140) { float dx = P.X - k.X, dz = P.Z - k.Z, d = DistXZ(P.X, P.Z, k.X, k.Z); k.X += dx / d * 330 * worldDt; k.Z = Cl(k.Z + dz / d * 330 * worldDt, -260, 480); k.Yaw = MathF.Atan2(dz, dx); k.Mv = 1; }
+                if (k.At >= 0) { k.At += worldDt; if (k.At > .28f) k.At = -1; }
                 if (k.L <= 0) Burst(k.X, G - 60, 25, new Color(223, 233, 255), 250, 5, -100, .6f, k.Z);
             }
             clones.RemoveAll(k => k.L <= 0);
             foreach (var p in proj)
             {
-                p.L -= dt;
-                if (p.K == "pillar") { p.T0 -= dt; if (p.T0 <= 0 && p.T0 > -.45f && DistXZ(P.X, P.Z, p.X, p.Z) < 45 && P.Y > G - 320) HurtP(p.Dmg, Sg(P.X - p.X)); continue; }
-                p.X += p.Vx * dt; p.Y += p.Vy * dt; p.Z += p.Vz * dt;
+                p.L -= worldDt;
+                if (p.K == "pillar") { p.T0 -= worldDt; if (p.T0 <= 0 && p.T0 > -.45f && DistXZ(P.X, P.Z, p.X, p.Z) < 45 && P.Y > G - 320) HurtP(p.Dmg, Sg(P.X - p.X)); continue; }
+                p.X += p.Vx * worldDt; p.Y += p.Vy * worldDt; p.Z += p.Vz * worldDt;
                 if (p.Own)
                 {
                     pt.Add(new Part { X = p.X, Y = p.Y, Z = p.Z, Vx = Rf(-30, 30), Vy = Rf(-30, 30), L = .3f, M = .3f, Sz = p.K == "ras" ? p.R * .5f : 3, C = CY });
@@ -345,6 +1112,13 @@ namespace Kadaya
             }
             foreach (var p in proj) if (p.L <= 0 && p.K == "ras" && !p.Spent) { p.Spent = true; Explode(p); }
             proj.RemoveAll(p => p.L <= 0);
+            }
+            if (sageT > 0)
+            {
+                sageT = Math.Max(0, sageT - dt);
+                float regen = progression.Profile.EquippedSageModeId == "sage.snake" ? 5f : progression.Profile.EquippedSageModeId == "sage.sixpaths" ? 4f : 1.5f;
+                P.Hp = Math.Min(P.Mh, P.Hp + regen * dt);
+            }
         }
 
         void UpdFx(float dt)
@@ -363,11 +1137,52 @@ namespace Kadaya
             if (Pr(Keys.F11)) gdm.ToggleFullScreen();
             if (Pr(Keys.F6)) { renderScale = renderScale >= 1.49f ? 1 : renderScale + .25f; CreateRenderTargets(); banS = "RENDER QUALITY  " + (int)(renderScale * 100) + "%"; banT = 1.5f; }
             if (Pr(Keys.F7)) { camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880; camMouseIdle = 0; banS = "CAMERA RESET"; banT = 1.2f; }
-            if (state == "title") { if (Pr(Keys.Enter)) state = "play"; if (Pr(Keys.N)) { lv = 0; SaveLv(); LoadLevel(0, 250); } }
+#if DEBUG
+            if (Pr(Keys.F9)) SetTestMode(!testMode);
+#endif
+            if (state == "play" && Pr(Keys.P))
+            {
+                shopMenuOpen = !shopMenuOpen; abilityMenuOpen = false; summoningMenuOpen = false;
+                if (shopMenuOpen) selectedShopIndex = Math.Max(0, selectedShopIndex);
+            }
+            if (state == "play" && Pr(Keys.Tab)) { abilityMenuOpen = !abilityMenuOpen; shopMenuOpen = false; summoningMenuOpen = false; }
+            if (state == "play" && Pr(Keys.M))
+            {
+                summoningMenuOpen = !summoningMenuOpen;
+                shopMenuOpen = false; abilityMenuOpen = false;
+                if (summoningMenuOpen)
+                {
+                    int equippedIndex = 0;
+                    for (int i = 0; i < SummoningCatalog.All.Count; i++)
+                        if (SummoningCatalog.All[i].Id == progression.Profile.EquippedSummonId) { equippedIndex = i; break; }
+                    selectedSummonIndex = equippedIndex;
+                }
+            }
+            if (state == "play" && Pr(Keys.Tab)) summoningMenuOpen = false;
+            if (state == "title")
+            {
+                if (Pr(Keys.Enter)) state = "play";
+                if (Pr(Keys.N))
+                {
+                    ResetNormalProgression();
+                    lv = 0; LoadLevel(0, 250);
+                }
+            }
             else if (state == "dead") { if (Pr(Keys.Enter)) { LoadLevel(lv, checkX, checkZ); state = "play"; } }
             else if (state == "win")
             {
-                winT += dt; if (Pr(Keys.Enter) && winT > 1) { if (lv >= 2) { lv = 0; SaveLv(); state = "end"; winT = 0; } else { lv++; SaveLv(); LoadLevel(lv, 250); state = "play"; } }
+                winT += dt;
+                if (Pr(Keys.Enter) && winT > 1)
+                {
+                    if (lv >= 2)
+                    {
+                        lv = 0; progression.Profile.UnlockedLevel = 0; SaveProgression(); state = "end"; winT = 0;
+                    }
+                    else
+                    {
+                        lv = progression.Profile.UnlockedLevel; SaveProgression(); LoadLevel(lv, 250); state = "play";
+                    }
+                }
             }
             else if (state == "end") { if (Pr(Keys.Enter)) { LoadLevel(0, 250); state = "title"; } }
             if (state == "play") { if (hitstop > 0) { hitstop -= dt; dt *= .1f; } UpdatePlay(dt); }
@@ -375,4 +1190,3 @@ namespace Kadaya
         }
     }
 }
-

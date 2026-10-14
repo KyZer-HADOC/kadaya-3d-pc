@@ -66,6 +66,10 @@ namespace Kadaya
                 return;
             }
             if (p.K == "ras") { float r = p.R; Glow(sx, sy, r * 3, Ad(CY, .9f)); Glow(sx, sy, r * 1.6f, Ad(WH, 1)); for (int i = 0; i < 3; i++) Cres(sx, sy, r * (.7f + i * .25f), r * (.7f + i * .25f), t * 14 + i * 2.1f, false, Ad(WH, .8f)); }
+            else if (p.K == "fire") { Glow(sx, sy, p.R * 3.2f, Ad(new Color(255, 82, 24), .95f)); Glow(sx, sy, p.R * 1.5f, Ad(new Color(255, 196, 72), 1)); Circ(sx, sy, p.R * .65f, new Color(255, 230, 145)); }
+            else if (p.K == "water") { Glow(sx, sy, p.R * 2.4f, Ad(new Color(55, 160, 255), .85f)); Cres(sx, sy, p.R * 1.1f, p.R * .7f, t * 9, false, Ad(new Color(205, 245, 255), .9f)); }
+            else if (p.K == "lightning") { Glow(sx, sy, p.R * 2.7f, Ad(new Color(150, 215, 255), 1)); for (int i = 0; i < 3; i++) Ln(sx - 24 + i * 10, sy - 20, sx + 24 - i * 8, sy + 18, 3, i == 1 ? WH : new Color(110, 195, 255)); }
+            else if (p.K == "shuriken") { float a = t * 13; for (int i = 0; i < 4; i++) { float q = a + i * MathHelper.PiOver2; Ln(sx - MathF.Cos(q) * 15, sy - MathF.Sin(q) * 15, sx + MathF.Cos(q) * 15, sy + MathF.Sin(q) * 15, 3, new Color(220, 232, 250)); } Glow(sx, sy, 20, Ad(new Color(175, 205, 255), .7f)); }
             else if (p.K == "wave") { Tri(sx, sy - 40, 64, 100, 0, Ad(new Color(255, 64, 32), .9f)); Glow(sx, sy - 30, 100, Ad(new Color(255, 64, 32), .6f)); Tri(sx, sy - 30, 28, 60, 0, Ad(WH, .6f)); }
             else if (p.K == "orb") { Glow(sx, sy, 60, Ad(VI, .9f)); Circ(sx, sy, 8, new Color(240, 220, 255)); }
             else if (p.K == "arrow") { var tail = ScreenAt(p.X - p.Vx * .045f, G - (p.Y - p.Vy * .045f), p.Z - p.Vz * .045f); Ln(tail, screen, 3, new Color(220, 200, 160)); Glow(sx, sy, 34, Ad(OR, .95f)); Glow(sx, sy, 14, Ad(WH, 1)); }
@@ -99,18 +103,225 @@ namespace Kadaya
         void DrawHud()
         {
             Bar(40, 36, 340, 18, P.Hp / P.Mh, new Color(138, 10, 34), new Color(255, 51, 85)); Bar(40, 64, 260, 10, P.En / 100, new Color(42, 108, 255), CY); Txt("THE REAPER", 40, 4, 26, WH);
-            Txt("LEVEL " + (lv + 1), W - 40, 10, 34, new Color(255, 207, 90), 2); Txt("SOULS " + kills, W - 40, 50, 24, VI, 2);
-            float prog = Cl(P.X / L.GateX, 0, 1); Box(W / 2, 22, 300, 4, 0, Color.White * .15f); Box(W / 2 - 150 + 150 * prog, 22, 300 * prog, 4, 0, Ad(L.Th.Accent, .9f)); Glow(W / 2 - 150 + 300 * prog, 22, 18, Ad(L.Th.Accent, 1));
-            var sk = new[] { ("LMB", "SCYTHE", 0), ("E", "CLONES", 40), ("SHIFT", "DODGE", 0) };
-            for (int i = 0; i < sk.Length; i++)
+            Txt("P PREMIUM SHOP  ·  M SUMMON VAULT  ·  G CALL  ·  X DISMISS", 275, 12, 12, new Color(190, 174, 224));
+            if (summonedCompanion != null)
             {
-                float X = 40 + i * 94; bool ok = P.En >= sk[i].Item3; float a = ok ? 1 : .35f; Color bc = new Color(255, 255, 255, 90);
-                Box(X + 43, H - 66, 86, 2, 0, bc * a); Box(X + 43, H - 22, 86, 2, 0, bc * a); Box(X, H - 44, 2, 44, 0, bc * a); Box(X + 86, H - 44, 2, 44, 0, bc * a);
-                Txt(sk[i].Item1, X + 43, H - 64, sk[i].Item1.Length > 1 ? 18 : 26, ok ? WH : Color.Gray, 1); Txt(sk[i].Item2, X + 43, H - 38, 14, ok ? CY : Color.DimGray, 1);
+                Bar(40, 88, 220, 6, summonedCompanion.Hp / Math.Max(1, summonedCompanion.Mh), new Color(55, 120, 70), new Color(170, 255, 150));
+                Txt(summonedCompanion.Definition.Name.ToUpperInvariant() + "  " + (int)Math.Ceiling(summonedCompanion.Remaining) + "s", 40, 98, 12, new Color(185, 242, 190));
+            }
+            Txt("LEVEL " + (lv + 1), W - 40, 10, 34, new Color(255, 207, 90), 2); Txt("SOULS " + kills, W - 40, 50, 24, VI, 2);
+            Txt("DIAMONDS " + CurrencyBalance("diamonds"), W - 40, 78, 16, new Color(95, 243, 255), 2);
+            Txt("SHARDS " + CurrencyBalance("shards"), W - 40, 99, 16, new Color(192, 107, 255), 2);
+            Txt("MONEY " + CurrencyBalance("money"), W - 40, 120, 14, new Color(255, 207, 90), 2);
+            if (!string.IsNullOrEmpty(progression.Profile.EquippedEyeId))
+                Txt(progression.Profile.EquippedEyeId.ToUpperInvariant() + " EYE  ·  Q POWER  ·  F MODE  ·  E POWER", 40, 112, 13, new Color(212, 174, 255));
+            if (futureVision) Txt("JOUGAN FUTURE VISION — HAZARDS / OBJECTIVE MARKED", W / 2, 88, 16, new Color(125, 245, 255), 1);
+            if (freezeT > 0) Txt("TIME FROZEN  " + freezeT.ToString("0.0") + "s", W / 2, 116, 19, new Color(150, 245, 255), 1);
+            if (susanooT > 0) Txt("SUSANOO  " + susanooT.ToString("0.0") + "s", W / 2, 142, 19, new Color(200, 150, 255), 1);
+            if (byakuganScout) Txt("BYAKUGAN SCOUT — WASD TO MOVE · F TO RETURN", W / 2, 88, 17, new Color(150, 245, 255), 1);
+            if (progression.Profile.EquippedEyeId == "kakashi")
+                Txt("CHAKRA: " + progression.Profile.EquippedChakraId.ToUpperInvariant() + "  ·  F SWITCH  ·  Q CAST", 40, 132, 13, new Color(190, 230, 255));
+            Txt("Q EYE / SHURIKEN  ·  F MODE / KENJUTSU  ·  E POWER / CLONE  ·  C HIDDEN  ·  R KUNAI  ·  Z SAGE", 40, 153, 11, Color.LightGray);
+            if (sageT > 0) Txt("SAGE MODE  " + sageT.ToString("0.0") + "s", W / 2, 166, 16, new Color(160, 255, 170), 1);
+            float prog = Cl(P.X / L.GateX, 0, 1); Box(W / 2, 22, 300, 4, 0, Color.White * .15f); Box(W / 2 - 150 + 150 * prog, 22, 300 * prog, 4, 0, Ad(L.Th.Accent, .9f)); Glow(W / 2 - 150 + 300 * prog, 22, 18, Ad(L.Th.Accent, 1));
+            string[] ids = { "scythe", "clone", "rasengan", string.Empty };
+            string[] keys = { "LMB", "E", "RMB", "SHIFT" };
+            string[] labels = { "SCYTHE", "CLONE", "RASENGAN", "DODGE" };
+            for (int i = 0; i < ids.Length; i++)
+            {
+                float X = 40 + i * 100;
+                AbilityDefinition ability = ids[i].Length > 0 ? AbilityCatalog.Get(ids[i]) : null;
+                bool unlocked = ability == null || progression.IsUsable(ability.Id);
+                string readiness = ability == null ? "READY" : AbilityReadiness(ability);
+                bool ready = readiness == "READY" || readiness == "ACTIVE";
+                float alpha = unlocked ? 1 : .45f;
+                Color border = new Color(255, 255, 255, 90);
+                Box(X + 46, H - 76, 92, 2, 0, border * alpha); Box(X + 46, H - 12, 92, 2, 0, border * alpha);
+                Box(X, H - 44, 2, 64, 0, border * alpha); Box(X + 92, H - 44, 2, 64, 0, border * alpha);
+                Txt(keys[i], X + 46, H - 72, keys[i].Length > 2 ? 15 : 22, unlocked ? WH : Color.Gray, 1);
+                Txt(labels[i], X + 46, H - 48, 13, unlocked ? CY : Color.DimGray, 1);
+                Txt(readiness, X + 46, H - 28, 10, ready ? CY : OR, 1);
             }
             foreach (var e in en) if (e.Boss && e.Aggro) { Bar(W / 2 - 260, 96, 520, 12, e.Hp / e.Mh, new Color(160, 16, 32), new Color(255, 96, 48)); Txt(e.Kind == 0 ? "ONI WARLORD" : e.Kind == 1 ? "THE WRAITH LORD" : "FIRE SHOGUN", W / 2, 58, 30, OR, 1); }
             if (banT > 0) Txt(banS, W / 2, H / 2 - 190, 54, WH * Cl(banT, 0, 1), 1, RD);
+#if DEBUG
+            if (testMode) Txt("TEST MODE", 40, 84, 18, RD);
+#endif
+            if (abilityMenuOpen) DrawAbilityMenu();
+            if (summoningMenuOpen) DrawSummoningMenu();
+            if (shopMenuOpen) DrawShopMenu();
+        }
+
+        string AbilityReadiness(AbilityDefinition ability)
+        {
+            if (!progression.IsUsable(ability.Id)) return "LOCKED";
+            if (ability.Id == "clone" && clones.Count > 0) return "ACTIVE";
+            float remaining = ability.Id == "clone" ? P.CloneCd : ability.Id == "rasengan" ? P.Kcd : 0;
+            if (remaining > 0) return "CD " + Math.Ceiling(remaining) + "s";
+            if (ability.ResourceCost > 0 && P.En < ability.ResourceCost) return "NEED ENERGY";
+            return "READY";
+        }
+
+        float AbilityCooldownRemaining(string abilityId)
+        {
+            if (abilityId == "clone") return Math.Max(0, P.CloneCd);
+            if (abilityId == "rasengan") return Math.Max(0, P.Kcd);
+            if (abilityId == "shuriken") return shurikenCd;
+            if (abilityId == "kenjutsu") return kenjutsuCd;
+            if (abilityId == "hidden") return hiddenCd;
+            if (abilityId == "kunai") return kunaiCd;
+            return 0;
+        }
+
+        void DrawAbilityMenu()
+        {
+            float x = 74, y = 70, w = 1132, h = 574;
+            Box(x + w / 2, y + h / 2, w, h, 0, Color.Black * .76f);
+            Box(x + w / 2, y + 2, w, 3, 0, Ad(CY, .85f));
+            Box(x + w / 2, y + h - 2, w, 3, 0, Ad(VI, .8f));
+            Txt("ABILITY ARCHIVE", x + 30, y + 18, 32, WH);
+            Txt("TAB CLOSES  ·  ↑/↓ SELECT  ·  U UPGRADE WITH SHARDS", x + w - 30, y + 30, 13, CY, 2);
+            Txt("UNLOCKS FOLLOW YOUR ACTIVE PROFILE  ·  SHARDS " + CurrencyBalance("shards"), x + 30, y + 56, 13, VI);
+            IReadOnlyList<AbilityMenuRow> rows = AbilityMenuModel.Build(progression);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                AbilityMenuRow row = rows[i];
+                AbilityDefinition ability = row.Definition;
+                float rowY = y + 94 + i * 64;
+                if (i == selectedAbilityIndex) Box(x + w / 2, rowY + 28, w - 42, 54, 0, new Color(45, 34, 65, 200));
+                Box(x + w / 2, rowY + 27, w - 42, 1, 0, Color.White * .1f);
+                string status = row.Status;
+                if (!ability.IsImplemented) status += row.IsUnlocked ? "  ·  UNLOCKED" : "  ·  LOCKED";
+                Color statusColor = row.Status == "Available" ? CY : row.Status == "Locked" ? OR : VI;
+                Txt(ability.Name, x + 28, rowY, 20, WH);
+                Txt("[" + ability.Binding + "]", x + 320, rowY + 2, 16, CY, 1);
+                Txt(status, x + 366, rowY + 3, 14, statusColor);
+
+                string cooldown = ability.CooldownSeconds > 0
+                    ? "CD " + (AbilityCooldownRemaining(ability.Id) > 0
+                        ? Math.Ceiling(AbilityCooldownRemaining(ability.Id)) + "s"
+                        : "READY")
+                    : "CD —";
+                string cost = ability.ResourceCost > 0 ? "COST " + ability.ResourceCost + " ENERGY" : "FREE";
+                string level = row.UpgradeLevel >= ability.MaximumUpgradeLevel ? "MAX LEVEL" : "LV " + row.UpgradeLevel + "/" + ability.MaximumUpgradeLevel + "  ·  " + progression.GetUpgradeShardCost(ability.Id) + " SHARDS";
+                Txt(cooldown + "  ·  " + cost + "  ·  " + level, x + w - 28, rowY + 3, 11, WH, 2);
+                Txt(row.RequirementText, x + 30, rowY + 32, 12, Color.LightGray);
+            }
+        }
+
+        void DrawSummoningMenu()
+        {
+            float x = 58, y = 54, w = 1164, h = 612;
+            Box(x + w / 2, y + h / 2, w, h, 0, Color.Black * .91f);
+            Box(x + w / 2, y + 2, w, 3, 0, Ad(RD, .9f));
+            Box(x + w / 2, y + h - 2, w, 3, 0, Ad(VI, .85f));
+            Txt("PREMIUM SUMMON VAULT", x + 28, y + 18, 31, WH);
+            Txt("M CLOSE  ·  ↑/↓ SELECT  ·  B BUY  ·  ENTER EQUIP  ·  U UPGRADE  ·  G SUMMON  ·  X DISMISS", x + w - 26, y + 27, 13, CY, 2);
+            Txt("DIAMONDS " + CurrencyBalance("diamonds") + "     SHARDS " + CurrencyBalance("shards") + "     SOUL ENERGY " + (int)P.En,
+                x + 30, y + 58, 16, new Color(190, 174, 224));
+
+            int visibleRows = 10;
+            int first = Math.Max(0, Math.Min(SummoningCatalog.All.Count - visibleRows, selectedSummonIndex - visibleRows / 2));
+            for (int rowIndex = 0; rowIndex < visibleRows; rowIndex++)
+            {
+                int itemIndex = first + rowIndex;
+                if (itemIndex >= SummoningCatalog.All.Count) break;
+                SummoningDefinition item = SummoningCatalog.All[itemIndex];
+                bool selected = itemIndex == selectedSummonIndex;
+                bool owned = summoningService.IsOwned(item.Id);
+                bool equipped = progression.Profile.EquippedSummonId == item.Id;
+                float rowY = y + 98 + rowIndex * 47;
+                if (selected) Box(x + 225, rowY + 19, 420, 39, 0, new Color(42, 28, 64, 230));
+                Box(x + 18, rowY + 42, 414, 1, 0, Color.White * .12f);
+                Txt((itemIndex + 1).ToString("00"), x + 29, rowY + 3, 12, VI);
+                Txt(item.Name, x + 70, rowY + 1, 15, selected ? WH : Color.LightGray);
+                string itemStatus = equipped ? "EQUIPPED" : owned ? "OWNED" : item.DiamondPrice + " DIAMONDS";
+                Color itemColor = owned ? CY : OR;
+                Txt(itemStatus, x + 430, rowY + 5, 11, itemColor, 2);
+            }
+
+            SummoningDefinition definition = SelectedSummon;
+            if (definition == null) return;
+            bool isOwned = summoningService.IsOwned(definition.Id);
+            bool isEquipped = progression.Profile.EquippedSummonId == definition.Id;
+            int level = summoningService.GetUpgradeLevel(definition.Id);
+            float rightX = x + 493;
+            Box(rightX + 321, y + 337, 626, 1, 0, Color.White * .18f);
+            Color primary = RgbColor(definition.PrimaryRgb), accent = RgbColor(definition.AccentRgb);
+            Glow(rightX + 310, y + 194, 132, Ad(primary, .8f));
+            if (definition.Category == SummonCategory.Bird || definition.Category == SummonCategory.Dragon)
+            {
+                Tri(rightX + 310, y + 190, 190, 112, -.12f, Ad(accent, .88f));
+                Tri(rightX + 310, y + 190, 150, 78, .18f, Ad(primary, .95f));
+            }
+            else if (definition.Category == SummonCategory.Snake)
+            {
+                Cres(rightX + 310, y + 193, 128, 100, .2f, false, Ad(primary, .95f));
+                Circ(rightX + 352, y + 161, 20, accent);
+            }
+            else
+            {
+                Circ(rightX + 310, y + 196, definition.Category == SummonCategory.Legendary ? 54 : 43, primary);
+                Circ(rightX + 330, y + 177, 23, accent);
+                Tri(rightX + 293, y + 152, 48, 52, -.2f, Ad(accent, .95f));
+            }
+            string category = definition.Category.ToString().ToUpperInvariant() + "  ·  " + definition.Role.ToString().ToUpperInvariant();
+            Txt(category, rightX + 310, y + 96, 17, accent, 1);
+            Txt(definition.Name, rightX + 310, y + 120, 31, WH, 1);
+            string access = isOwned ? (isEquipped ? "OWNED  ·  EQUIPPED" : "OWNED  ·  PERMANENT") : "PREMIUM  ·  " + definition.DiamondPrice + " DIAMONDS";
+            Txt(access, rightX + 310, y + 275, 18, isOwned ? CY : OR, 1);
+            Txt(definition.Description, rightX + 310, y + 311, 12, Color.LightGray, 1);
+            Txt("DURATION " + (int)(definition.DurationSeconds * summoningService.GetStats(definition.Id).DurationMultiplier) + "s   ·   COOLDOWN " + (int)(definition.CooldownSeconds * summoningService.GetStats(definition.Id).CooldownMultiplier) + "s", rightX + 310, y + 365, 15, WH, 1);
+            Txt("HP " + (int)(definition.MaximumHealth * summoningService.GetStats(definition.Id).HealthMultiplier) + "   ·   DAMAGE " + (int)(definition.Damage * summoningService.GetStats(definition.Id).DamageMultiplier) + (definition.HealingPerSecond > 0 ? "   ·   HEAL " + (int)(definition.HealingPerSecond * summoningService.GetStats(definition.Id).HealingMultiplier) + "/s" : ""), rightX + 310, y + 391, 14, Color.LightGray, 1);
+            string upgrade = level >= definition.MaximumUpgradeLevel ? "MAX UPGRADE" : "UPGRADE " + level + "/" + definition.MaximumUpgradeLevel + "  ·  " + summoningService.GetUpgradeShardCost(definition.Id) + " SHARDS";
+            Txt(upgrade, rightX + 310, y + 425, 16, VI, 1);
+#if DEBUG
+            if (summoningService.IsTestMode) Txt("TEST MODE  ·  ALL SUMMONS OWNED / MAX LEVEL  ·  NO NORMAL PROFILE GRANTS", rightX + 310, y + 463, 12, RD, 1);
+            else
+#endif
+            Txt("LOCKED SUMMONS REQUIRE VAULT PURCHASE; PROGRESSION ALONE NEVER UNLOCKS THEM.", rightX + 310, y + 463, 11, OR, 1);
+            Txt("G ACTIVATE SELECTED  ·  X DISMISS ACTIVE  ·  ACTIVE: " + (summonedCompanion == null ? "NONE" : summonedCompanion.Definition.Name.ToUpperInvariant()), rightX + 310, y + 500, 13, CY, 1);
+        }
+
+        void DrawShopMenu()
+        {
+            float x = 58, y = 54, w = 1164, h = 612;
+            Box(x + w / 2, y + h / 2, w, h, 0, Color.Black * .94f);
+            Box(x + w / 2, y + 2, w, 3, 0, Ad(new Color(255, 207, 90), .95f));
+            Txt("KADAYA PREMIUM SHOP", x + 28, y + 18, 31, WH);
+            Txt("P CLOSE · ↑/↓ SELECT · B BUY · ENTER EQUIP · U SUSANOO UPGRADE · Z SAGE MODE", x + w - 26, y + 28, 12, CY, 2);
+            Txt("MONEY " + CurrencyBalance("money") + "     DIAMONDS " + CurrencyBalance("diamonds") + "     SHARDS " + CurrencyBalance("shards"),
+                x + 30, y + 58, 16, new Color(220, 200, 160));
+            int rows = 11, first = Math.Max(0, Math.Min(PremiumShopCatalog.All.Count - rows, selectedShopIndex - rows / 2));
+            for (int row = 0; row < rows; row++)
+            {
+                int index = first + row; if (index >= PremiumShopCatalog.All.Count) break;
+                ShopItem item = PremiumShopCatalog.All[index]; bool owned = shopService.IsOwned(item.Id), selected = index == selectedShopIndex;
+                float rowY = y + 96 + row * 45;
+                if (selected) Box(x + 222, rowY + 19, 418, 39, 0, new Color(52, 39, 73, 235));
+                Box(x + 20, rowY + 40, 404, 1, 0, Color.White * .1f);
+                Txt((index + 1).ToString("00"), x + 28, rowY + 3, 12, VI);
+                Txt(item.Name, x + 68, rowY + 2, 14, selected ? WH : Color.LightGray);
+                Txt(owned ? "OWNED" : item.Price + " " + item.Currency.ToUpperInvariant(), x + 426, rowY + 5, 11, owned ? CY : OR, 2);
+            }
+            ShopItem chosen = PremiumShopCatalog.All[selectedShopIndex]; bool isOwned = shopService.IsOwned(chosen.Id);
+            float right = x + 488;
+            Box(right + 326, y + 338, 630, 1, 0, Color.White * .18f);
+            Color tint = chosen.Kind == ShopItemKind.Eye ? new Color(180, 115, 255) : chosen.Kind == ShopItemKind.Weapon ? CY : new Color(255, 207, 90);
+            Glow(right + 326, y + 194, 132, Ad(tint, .8f));
+            Circ(right + 326, y + 190, chosen.Kind == ShopItemKind.Eye ? 48 : 40, tint);
+            Tri(right + 326, y + 163, 78, 78, -.18f, Ad(WH, .85f));
+            Txt(chosen.Kind.ToString().ToUpperInvariant(), right + 326, y + 95, 15, tint, 1);
+            Txt(chosen.Name, right + 326, y + 122, 28, WH, 1);
+            Txt(chosen.Description, right + 326, y + 290, 14, Color.LightGray, 1);
+            Txt(isOwned ? "OWNED PERMANENTLY" : "PRICE  " + chosen.Price + " " + chosen.Currency.ToUpperInvariant(), right + 326, y + 324, 17, isOwned ? CY : OR, 1);
+            Txt("EQUIPPED EYE  " + (string.IsNullOrEmpty(progression.Profile.EquippedEyeId) ? "NONE" : progression.Profile.EquippedEyeId.ToUpperInvariant()), right + 326, y + 370, 13, Color.LightGray, 1);
+            Txt("SUSANOO DURATION  " + shopService.GetSusanooDuration().ToString("0") + " / 12 SECONDS", right + 326, y + 406, 14, new Color(205, 160, 255), 1);
+            Txt(shopService.GetSusanooLevel() >= 9 ? "SUSANOO MAX LEVEL" : "NEXT UPGRADE  " + shopService.GetSusanooUpgradeCost() + " SHARDS", right + 326, y + 434, 13, VI, 1);
+            Txt("Z TO ACTIVATE EQUIPPED SAGE MODE  ·  EYE POWERS: Q / E / F", right + 326, y + 472, 12, CY, 1);
+#if DEBUG
+            if (shopService.IsTestMode) Txt("TEST MODE — ENTER TO EQUIP ANY ITEM · PURCHASES DO NOT GRANT NORMAL PROFILE OWNERSHIP", right + 326, y + 516, 11, RD, 1);
+#endif
         }
     }
 }
-
