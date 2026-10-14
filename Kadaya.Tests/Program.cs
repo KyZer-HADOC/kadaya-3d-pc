@@ -33,7 +33,9 @@ namespace Kadaya.Tests
             VerifyNormalAndTestProfileSaveIsolation();
             VerifyPremiumSummoningCatalogAndOwnership();
             VerifySummonUpgradesUseShards();
+#if DEBUG
             VerifyTestModeSummoningGrantsAreTemporary();
+#endif
             VerifySummoningEconomyRewardsPersist();
             VerifyPremiumShopAndEyeOwnership();
             VerifyAbilityAndSusanooShardUpgrades();
@@ -327,8 +329,12 @@ namespace Kadaya.Tests
                 var testProgression = new ProgressionService(test);
                 for (int i = 0; i < 3; i++) testProgression.RecordEnemyDefeat();
                 var testMode = new ProgressionService(test, true);
+#if DEBUG
                 Require(testMode.IsUsable("clone") && testMode.GetUpgradeLevel("clone") == AbilityCatalog.Get("clone").MaximumUpgradeLevel,
                     "Test Mode must provide temporary implemented-ability grants in the test profile.");
+#else
+                Require(!testMode.IsUsable("clone"), "Release builds must not enable Debug-only Test Mode grants.");
+#endif
                 ProgressionStore.Save(test, testPath);
 
                 ProgressionProfile loadedNormal = ProgressionStore.Load(normalPath, null);
