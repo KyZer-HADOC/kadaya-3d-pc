@@ -397,9 +397,7 @@ namespace Kadaya
                 }
             }
             if (banT > 0) Txt(banS, W / 2, H / 2 - 190, 54, WH * Cl(banT, 0, 1), 1, RD);
-#if DEBUG
             if (testMode) Txt("TEST MODE", 40, 84, 18, RD);
-#endif
         }
 
         string AbilityReadiness(AbilityDefinition ability)
@@ -731,6 +729,8 @@ namespace Kadaya
                 Txt("PRESS A KEY FOR  " + SettingActionLabel(capturingSettingAction).ToUpperInvariant() + "   ·   ESC CANCELS", W / 2, 601, 14, OR, 1);
             else if (settingsSection == 2)
                 Txt("MOUSE  LMB MELEE  ·  RMB RASENGAN     F6 QUALITY  ·  F7 CAMERA RESET  ·  F11 FULLSCREEN", W / 2, 601, 10, Color.LightGray, 1);
+            else if (settingsSection == 4)
+                Txt("TEST MODE UNLOCKS IMPLEMENTED CONTENT AND USES ITS OWN SAVE  ·  F9 QUICK TOGGLE", W / 2, 601, 11, VI, 1);
             else Txt("CHANGES TAKE EFFECT IMMEDIATELY AND STAY SEPARATE FROM STORY PROGRESSION.", W / 2, 601, 11, Color.LightGray, 1);
             DrawActionButton(1004, 626, 192, settingsSection == 2 ? "RESTORE DEFAULTS" : "ESC  BACK", new Color(35, 27, 43));
         }
@@ -741,7 +741,7 @@ namespace Kadaya
             if (settingsSection == 1) return new[] { "Show HUD", "Health / Energy", "Currency Wallet", "Gameplay Hints", "HUD Scale", "Horizontal Offset", "Vertical Offset" }[index];
             if (settingsSection == 2) return index < RebindableLabels.Length ? RebindableLabels[index] : "Restore Default Key Binds";
             if (settingsSection == 3) return new[] { "Resolution", "Fullscreen", "VSync", "Render Quality" }[index];
-            return "Camera Sensitivity";
+            return index == 0 ? "Camera Sensitivity" : "Test Mode (isolated save)";
         }
 
         string SettingsValue(int index)
@@ -769,9 +769,10 @@ namespace Kadaya
                 if (index == 0) return ResolutionWidths[settings.ResolutionIndex] + " x " + ResolutionHeights[settings.ResolutionIndex];
                 if (index == 1) return settings.Fullscreen ? "FULLSCREEN" : "WINDOWED";
                 if (index == 2) return settings.VSync ? "ON" : "OFF";
-                return new[] { "100%", "125%", "150%" }[settings.GraphicsQuality];
+                return new[] { "LOW 100%", "HIGH 125%", "VERY HIGH 150%", "ULTRA 200%" }[settings.GraphicsQuality];
             }
-            return settings.CameraSensitivity.ToString("0.0") + "x";
+            if (index == 0) return settings.CameraSensitivity.ToString("0.0") + "x";
+            return testMode ? "ON - TEST-SAVE.JSON" : "OFF - NORMAL SAVE";
         }
 
         string SettingActionLabel(string action)

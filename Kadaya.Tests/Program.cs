@@ -35,9 +35,7 @@ namespace Kadaya.Tests
             VerifyNormalAndTestProfileSaveIsolation();
             VerifySummoningCatalogAndOwnership();
             VerifySummonUpgradesUseShards();
-#if DEBUG
             VerifyTestModeSummoningGrantsAreTemporary();
-#endif
             VerifySummoningEconomyRewardsPersist();
             VerifyShopAndEyeOwnership();
             VerifyAbilityAndSusanooShardUpgrades();
@@ -197,7 +195,6 @@ namespace Kadaya.Tests
             var upgradesBefore = new Dictionary<string, int>(profile.UpgradeLevels);
             var testMode = new ProgressionService(profile, true);
 
-#if DEBUG
             foreach (AbilityDefinition ability in AbilityCatalog.All)
             {
                 bool shouldBeAvailable = ability.IsImplemented;
@@ -207,10 +204,6 @@ namespace Kadaya.Tests
                     Require(testMode.GetUpgradeLevel(ability.Id) == ability.MaximumUpgradeLevel,
                         ability.Id + " must use its registered maximum upgrade in Test Mode.");
             }
-#else
-            Require(!testMode.IsUsable("clone") && !testMode.IsUsable("rasengan"),
-                "Release builds must not activate the Debug-only Test Mode grants.");
-#endif
 
             Require(!normal.IsUnlocked("clone") && !normal.IsUnlocked("rasengan"), "Test Mode must not grant abilities to the normal service.");
             Require(SameItems(unlockedBefore, profile.UnlockedAbilityIds), "Test Mode must not persist its grants.");
@@ -393,12 +386,8 @@ namespace Kadaya.Tests
                 var testProgression = new ProgressionService(test);
                 for (int i = 0; i < 3; i++) testProgression.RecordEnemyDefeat();
                 var testMode = new ProgressionService(test, true);
-#if DEBUG
                 Require(testMode.IsUsable("clone") && testMode.GetUpgradeLevel("clone") == AbilityCatalog.Get("clone").MaximumUpgradeLevel,
                     "Test Mode must provide temporary implemented-ability grants in the test profile.");
-#else
-                Require(!testMode.IsUsable("clone"), "Release builds must not enable Debug-only Test Mode grants.");
-#endif
                 ProgressionStore.Save(test, testPath);
 
                 ProgressionProfile loadedNormal = ProgressionStore.Load(normalPath, null);
@@ -475,6 +464,8 @@ namespace Kadaya.Tests
                 Require(testMode.IsOwned(definition.Id), definition.Name + " must be available in Test Mode.");
                 Require(testMode.GetUpgradeLevel(definition.Id) == definition.MaximumUpgradeLevel,
                     definition.Name + " must be max-upgraded in Test Mode.");
+                string reason;
+                Require(testMode.TryEquip(definition.Id, out reason), definition.Name + " must be equippable in Test Mode.");
             }
             Require(profile.OwnedContentIds.Count == 0 && profile.UpgradeLevels.Count == 0,
                 "Test Mode must not write test ownership or upgrades into the normal profile.");
@@ -537,15 +528,16 @@ namespace Kadaya.Tests
                     "Shop ownership and equipped eye/weapon IDs must survive save and reload.");
             });
 
-#if DEBUG
             var testProfile = new ProgressionProfile();
             var testShop = new ShopService(testProfile, true);
             foreach (ShopItem item in ShopCatalog.All)
+            {
                 Require(testShop.IsOwned(item.Id), "Test Mode must provide immediate access to " + item.Id + ".");
+                Require(testShop.TryEquip(item.Id, out reason), "Test Mode must let the player equip " + item.Id + ".");
+            }
             Require(testShop.GetSusanooLevel() == 9 && testShop.GetSusanooDuration() == 12f,
                 "Test Mode must grant maximum Susanoo duration without normal purchases.");
             Require(testProfile.OwnedContentIds.Count == 0, "Test Mode shop access must not write test ownership into the profile.");
-#endif
         }
 
         static void VerifyAbilityAndSusanooShardUpgrades()
@@ -633,15 +625,10 @@ namespace Kadaya.Tests
                 "Mission 2 and Rasengan requirements must be visible.");
 
             IReadOnlyList<AbilityMenuRow> testRows = AbilityMenuModel.Build(new ProgressionService(new ProgressionProfile(), true));
-#if DEBUG
             Require(FindMenuRow(testRows, "clone").Status == "Available" && FindMenuRow(testRows, "rasengan").Status == "Available",
                 "Test Mode must show implemented abilities as Available.");
             Require(FindMenuRow(testRows, "clone").UpgradeLevel == clone.Definition.MaximumUpgradeLevel,
                 "Test Mode must show the maximum registered upgrade level.");
-#else
-            Require(FindMenuRow(testRows, "clone").Status == "Locked" && FindMenuRow(testRows, "rasengan").Status == "Locked",
-                "Release builds must keep Debug-only Test Mode abilities locked until normal progression unlocks them.");
-#endif
         }
 
         static void VerifyShopMenuModel()
@@ -659,6 +646,7 @@ namespace Kadaya.Tests
         static void VerifyGameSettingsPersistenceAndBindings()
         {
             var settings = new GameSettings();
+            Require(settings.GraphicsQuality == 3, "New installs should start with the requested Ultra graphics preset.");
             Require(settings.TrySetBinding("MoveForward", "H"), "A valid unused key must be assignable.");
             Require(!settings.TrySetBinding("MoveLeft", "H"), "A key already used by another action must be rejected.");
             Require(!settings.TrySetBinding("MoveLeft", "F11"), "A reserved system key must not be assignable.");
@@ -670,10 +658,13 @@ namespace Kadaya.Tests
             settings.HudOffsetX = 35;
             settings.Muted = true;
             settings.Fullscreen = true;
-            settings.GraphicsQuality = 2;
+            settings.GraphicsQuality = 3;
             settings.Normalize();
             Require(Math.Abs(settings.MasterVolume - 1f) < .001f, "Settings values must clamp to their valid range.");
-            Require(settings.Muted && settings.Fullscreen && settings.GraphicsQuality == 2, "Boolean and graphics preferences must remain selectable.");
+            Require(settings.Muted && settings.Fullscreen && settings.GraphicsQuality == 3, "Boolean and Ultra graphics preferences must remain selectable.");
+            settings.GraphicsQuality = 99;
+            settings.Normalize();
+            Require(settings.GraphicsQuality == 3, "Out-of-range saved quality values must clamp to the supported Ultra preset.");
 
             RunWithTempDirectory(root =>
             {

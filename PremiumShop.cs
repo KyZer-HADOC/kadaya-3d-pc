@@ -51,15 +51,11 @@ namespace Kadaya
     public class ShopService
     {
         private readonly ProgressionProfile profile;
-#if DEBUG
         private readonly bool testMode;
-#endif
         public ShopService(ProgressionProfile profile, bool testMode = false)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
-#if DEBUG
             this.testMode = testMode;
-#endif
             if (this.profile.OwnedContentIds == null) this.profile.OwnedContentIds = new List<string>();
             if (this.profile.CurrencyBalances == null) this.profile.CurrencyBalances = new Dictionary<string, int>(StringComparer.Ordinal);
             if (this.profile.UpgradeLevels == null) this.profile.UpgradeLevels = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -68,9 +64,7 @@ namespace Kadaya
         public bool IsOwned(string id)
         {
             if (ShopCatalog.Get(id) == null) return false;
-#if DEBUG
             if (testMode) return true;
-#endif
             return profile.OwnedContentIds.Contains(id);
         }
 
@@ -78,11 +72,7 @@ namespace Kadaya
         {
             get
             {
-#if DEBUG
                 return testMode;
-#else
-                return false;
-#endif
             }
         }
 
@@ -142,9 +132,7 @@ namespace Kadaya
 
         public int GetSusanooLevel()
         {
-#if DEBUG
             if (testMode) return 9;
-#endif
             int level;
             return profile.UpgradeLevels.TryGetValue("susanoo.duration", out level) ? Math.Max(0, Math.Min(9, level)) : 0;
         }
@@ -157,9 +145,6 @@ namespace Kadaya
             if (!IsOwned("eye.ems")) { reason = "Unlock Eternal Mangekyo Sharingan first."; return false; }
             int level = GetSusanooLevel();
             if (level >= 9) { reason = "Susanoo duration is at maximum."; return false; }
-#if DEBUG
-            if (testMode) { reason = "Test Mode already has the maximum Susanoo duration."; return false; }
-#endif
             int shards = GetBalance("shards"), cost = GetSusanooUpgradeCost();
             if (shards < cost) { reason = "Not enough Shards."; return false; }
             SetBalance("shards", shards - cost);

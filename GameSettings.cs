@@ -36,7 +36,7 @@ namespace Kadaya
         public int ResolutionIndex { get; set; }
         public bool Fullscreen { get; set; }
         public bool VSync { get; set; } = true;
-        public int GraphicsQuality { get; set; }
+        public int GraphicsQuality { get; set; } = 3;
         public Dictionary<string, string> KeyBindings { get; set; } = CreateDefaultBindings();
 
         public static IReadOnlyDictionary<string, string> Defaults { get { return defaultBindings; } }
@@ -73,7 +73,7 @@ namespace Kadaya
             HudOffsetY = Math.Max(-120, Math.Min(120, HudOffsetY));
             CameraSensitivity = Clamp(CameraSensitivity, .25f, 2.5f);
             ResolutionIndex = Math.Max(0, Math.Min(2, ResolutionIndex));
-            GraphicsQuality = Math.Max(0, Math.Min(2, GraphicsQuality));
+            GraphicsQuality = Math.Max(0, Math.Min(3, GraphicsQuality));
 
             Dictionary<string, string> saved = KeyBindings;
             KeyBindings = CreateDefaultBindings();

@@ -128,9 +128,9 @@ Weapons, eyes, Sage Modes, and aura variants do not currently have separate upgr
 
 Settings save separately to `%AppData%\Kadaya\settings.json`; campaign progression remains in `%AppData%\Kadaya\save.json` and the legacy `%AppData%\Kadaya\save.txt` migration is retained.
 
-Settings include master/music/effects volume and mute, HUD visibility toggles and scale/offset, keyboard rebinds with duplicate/reserved-key rejection and restore defaults, 1280x720 / 1600x900 / 1920x1080 resolution, fullscreen/windowed, VSync, 100% / 125% / 150% render quality, and camera sensitivity. Changes apply immediately. F6, F7, and F11 remain quick controls for quality, camera reset, and fullscreen.
+Settings include master/music/effects volume and mute, HUD visibility toggles and scale/offset, keyboard rebinds with duplicate/reserved-key rejection and restore defaults, 1280x720 / 1600x900 / 1920x1080 resolution, fullscreen/windowed, VSync, Low 100% / High 125% / Very High 150% / Ultra 200% internal render scale, and camera sensitivity. New settings default to Ultra. Ultra also rebuilds the procedural sphere and round meshes at higher tessellation; if the GPU cannot allocate its render targets, the game falls back to the next supported preset and saves that choice. The higher render scale costs GPU memory and frame time, so use a lower preset on modest PCs. Changes apply immediately. F6 cycles quality, F7 resets the camera, and F11 toggles fullscreen.
 
-Unreadable progression files are preserved and protected from being overwritten. Debug builds can toggle Test Mode with F9. Test Mode uses `%AppData%\Kadaya\test-save.json`, is excluded from Release, and does not write test grants into the normal profile. Optional development startup configuration remains at `%AppData%\Kadaya\development.json`.
+Unreadable progression files are preserved and protected from being overwritten. Test Mode is available in Debug and Release: toggle it with F9 or Settings → Camera → Test Mode. It grants every implemented ability, shop item, summon, and maximum upgrade level without writing those grants into a save. Test Mode always uses `%AppData%\Kadaya\test-save.json`; normal play uses `%AppData%\Kadaya\save.json`. Test Mode starts disabled each launch, and starting a new campaign while it is enabled resets only the test profile.
 
 ## Audio and icon
 

@@ -193,17 +193,13 @@ namespace Kadaya
 
     public sealed class SummoningService
     {
-#if DEBUG
         private readonly bool testMode;
-#endif
         public ProgressionProfile Profile { get; private set; }
 
         public SummoningService(ProgressionProfile profile, bool testMode = false)
         {
             Profile = profile ?? new ProgressionProfile();
-#if DEBUG
             this.testMode = testMode;
-#endif
             if (Profile.OwnedContentIds == null) Profile.OwnedContentIds = new List<string>();
             if (Profile.UpgradeLevels == null) Profile.UpgradeLevels = new Dictionary<string, int>(StringComparer.Ordinal);
             if (Profile.CurrencyBalances == null) Profile.CurrencyBalances = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -214,20 +210,14 @@ namespace Kadaya
         {
             get
             {
-#if DEBUG
                 return testMode;
-#else
-                return false;
-#endif
             }
         }
 
         public bool IsOwned(string id)
         {
             if (SummoningCatalog.Get(id) == null) return false;
-#if DEBUG
             if (testMode) return true;
-#endif
             return Profile.OwnedContentIds.Contains(OwnershipId(id));
         }
 
@@ -235,9 +225,7 @@ namespace Kadaya
         {
             SummoningDefinition definition = SummoningCatalog.Get(id);
             if (definition == null) return 0;
-#if DEBUG
             if (testMode) return definition.MaximumUpgradeLevel;
-#endif
             int level;
             if (!Profile.UpgradeLevels.TryGetValue(UpgradeId(id), out level)) return 0;
             return Math.Max(0, Math.Min(definition.MaximumUpgradeLevel, level));

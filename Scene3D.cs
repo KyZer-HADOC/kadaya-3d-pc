@@ -12,15 +12,33 @@ namespace Kadaya
 
     public partial class Game1
     {
-        BasicEffect be; Mesh mCube, mSph, mCyl, mCone, mPyr, mFrus; Matrix view, projM; float specK;
+        BasicEffect be; Mesh mCube, mSph, mCyl, mCone, mPyr, mFrus; Matrix view, projM; float specK; int appliedMeshQuality = -1;
         List<GlowReq> glows = new List<GlowReq>();
         static Color Em(Color c, float k) => new Color(c.R * k / 255f, c.G * k / 255f, c.B * k / 255f);
 
         // ---------- procedural meshes ----------
         void Init3D()
         {
-            be = new BasicEffect(GraphicsDevice) { TextureEnabled = false, VertexColorEnabled = false, SpecularColor = Vector3.Zero, SpecularPower = 48 };
-            mCube = MkCube(); mSph = MkSphere(24, 32); mCyl = MkRound(24, 1f); mCone = MkRound(24, 0f); mPyr = MkRound(4, 0f); mFrus = MkRound(24, .8f);
+            if (be == null) be = new BasicEffect(GraphicsDevice) { TextureEnabled = false, VertexColorEnabled = false, SpecularColor = Vector3.Zero, SpecularPower = 48 };
+            RebuildQualityMeshes();
+        }
+        void RebuildQualityMeshes()
+        {
+            int quality = settings == null ? 0 : settings.GraphicsQuality;
+            if (appliedMeshQuality == quality && mCube != null) return;
+            DisposeMesh(mCube); DisposeMesh(mSph); DisposeMesh(mCyl); DisposeMesh(mCone); DisposeMesh(mPyr); DisposeMesh(mFrus);
+            int segments = quality == 0 ? 16 : quality == 1 ? 24 : quality == 2 ? 32 : 48;
+            int sphereStacks = quality == 0 ? 16 : quality == 1 ? 24 : quality == 2 ? 36 : 48;
+            int sphereSlices = quality == 0 ? 24 : quality == 1 ? 32 : quality == 2 ? 48 : 64;
+            mCube = MkCube(); mSph = MkSphere(sphereStacks, sphereSlices); mCyl = MkRound(segments, 1f);
+            mCone = MkRound(segments, 0f); mPyr = MkRound(4, 0f); mFrus = MkRound(segments, .8f);
+            appliedMeshQuality = quality;
+        }
+        static void DisposeMesh(Mesh mesh)
+        {
+            if (mesh == null) return;
+            if (mesh.VB != null) mesh.VB.Dispose();
+            if (mesh.IB != null) mesh.IB.Dispose();
         }
         Mesh Build(List<VertexPositionNormalTexture> v, List<ushort> ix)
         {

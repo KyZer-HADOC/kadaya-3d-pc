@@ -136,18 +136,14 @@ namespace Kadaya
 
     public sealed class ProgressionService
     {
-#if DEBUG
         private readonly bool testMode;
-#endif
 
         public ProgressionProfile Profile { get; private set; }
 
         public ProgressionService(ProgressionProfile profile, bool testMode = false)
         {
             Profile = profile ?? new ProgressionProfile();
-#if DEBUG
             this.testMode = testMode;
-#endif
             NormalizeProfile();
             EvaluateUnlocks();
         }
@@ -156,9 +152,7 @@ namespace Kadaya
         {
             AbilityDefinition ability = AbilityCatalog.Get(id);
             if (ability == null) return false;
-#if DEBUG
             if (testMode && ability.IsImplemented) return true;
-#endif
             return Profile.UnlockedAbilityIds.Contains(ability.Id);
         }
 
@@ -172,9 +166,7 @@ namespace Kadaya
         {
             AbilityDefinition ability = AbilityCatalog.Get(id);
             if (ability == null) return 0;
-#if DEBUG
             if (testMode && ability.IsImplemented) return ability.MaximumUpgradeLevel;
-#endif
 
             int level;
             if (!Profile.UpgradeLevels.TryGetValue(ability.Id, out level)) return 0;
@@ -194,9 +186,6 @@ namespace Kadaya
             if (!IsUnlocked(id)) { reason = "Unlock this ability first."; return false; }
             int level = GetUpgradeLevel(id);
             if (level >= ability.MaximumUpgradeLevel) { reason = "Ability is at maximum level."; return false; }
-#if DEBUG
-            if (testMode) { reason = "Test Mode already has maximum upgrades."; return false; }
-#endif
             int shards;
             Profile.CurrencyBalances.TryGetValue("shards", out shards);
             int cost = GetUpgradeShardCost(id);

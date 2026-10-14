@@ -50,11 +50,8 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         float scoutX, scoutZ, rotationT, freezeT, susanooT, susanooCd, eyeCooldown, pushCooldown, genjutsuCooldown, sageT, sageCd;
         float shurikenCd, kenjutsuCd, hiddenCd, kunaiCd, hiddenT;
         HashSet<int> disabledSpikeIndices = new HashSet<int>();
-        string normalProfilePath, legacySavePath;
-#if DEBUG
-        string testProfilePath;
+        string normalProfilePath, legacySavePath, testProfilePath;
         bool testMode;
-#endif
         Pl P = new Pl();
         List<Foe> en = new List<Foe>(); List<Proj> proj = new List<Proj>(); List<Clone> clones = new List<Clone>();
         List<Part> pt = new List<Part>(); List<Fx> fx = new List<Fx>(); List<Trl> trail = new List<Trl>();
@@ -93,7 +90,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
 
         static readonly int[] ResolutionWidths = { 1280, 1600, 1920 };
         static readonly int[] ResolutionHeights = { 720, 900, 1080 };
-        static readonly float[] QualityScales = { 1f, 1.25f, 1.5f };
+        static readonly float[] QualityScales = { 1f, 1.25f, 1.5f, 2f };
 
         void InitializeSettings()
         {
@@ -133,6 +130,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 SaveSettings();
             }
             CreateRenderTargets();
+            RebuildQualityMeshes();
         }
 
         void ApplyAudioVolumes()
@@ -161,9 +159,28 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         void CreateRenderTargets()
         {
             if (rt != null) rt.Dispose(); if (small != null) small.Dispose();
-            int rw = (int)(W * renderScale), rh = (int)(H * renderScale);
-            rt = new RenderTarget2D(GraphicsDevice, rw, rh, false, SurfaceFormat.Color, DepthFormat.Depth24, 0, RenderTargetUsage.PreserveContents);
-            small = new RenderTarget2D(GraphicsDevice, Math.Max(1, rw / 4), Math.Max(1, rh / 4));
+            while (true)
+            {
+                RenderTarget2D next = null;
+                try
+                {
+                    int rw = (int)(W * renderScale), rh = (int)(H * renderScale);
+                    next = new RenderTarget2D(GraphicsDevice, rw, rh, false, SurfaceFormat.Color, DepthFormat.Depth24, 0, RenderTargetUsage.PreserveContents);
+                    RenderTarget2D nextSmall = new RenderTarget2D(GraphicsDevice, Math.Max(1, rw / 4), Math.Max(1, rh / 4));
+                    rt = next; small = nextSmall;
+                    return;
+                }
+                catch
+                {
+                    if (next != null) next.Dispose();
+                    if (settings == null || settings.GraphicsQuality <= 0) throw;
+                    settings.GraphicsQuality--;
+                    renderScale = QualityScales[settings.GraphicsQuality];
+                    banS = "GRAPHICS MEMORY LIMIT - LOWERED TO " + (int)(renderScale * 100) + "%";
+                    banT = 3f;
+                    SaveSettings();
+                }
+            }
         }
         Texture2D Make(int n, Func<float, float, Color> f)
         {
@@ -177,11 +194,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             get
             {
-#if DEBUG
                 return testMode;
-#else
-                return false;
-#endif
             }
         }
 
@@ -189,9 +202,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             get
             {
-#if DEBUG
                 if (testMode) return testProfilePath;
-#endif
                 return normalProfilePath;
             }
         }
@@ -201,10 +212,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             string appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             normalProfilePath = ProgressionStore.GetNormalProfilePath(appDataRoot);
             legacySavePath = ProgressionStore.GetLegacySavePath(appDataRoot);
-#if DEBUG
             testProfilePath = ProgressionStore.GetTestProfilePath(appDataRoot);
-            testMode = DevelopmentSettings.Load(DevelopmentSettings.GetPath(appDataRoot));
-#endif
+            // Test Mode is always opt-in from Settings and starts in the normal profile.
+            testMode = false;
             LoadActiveProgression();
         }
 
@@ -212,15 +222,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             string legacyPath = IsTestMode ? null : legacySavePath;
             ProgressionProfile profile = ProgressionStore.Load(ActiveProfilePath, legacyPath);
-#if DEBUG
             progression = new ProgressionService(profile, IsTestMode);
             summoningService = new SummoningService(profile, IsTestMode);
             shopService = new ShopService(profile, IsTestMode);
-#else
-            progression = new ProgressionService(profile);
-            summoningService = new SummoningService(profile);
-            shopService = new ShopService(profile);
-#endif
             lv = progression.Profile.UnlockedLevel;
         }
 
@@ -243,28 +247,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
 
         void ResetNormalProgression()
         {
-            if (!IsTestMode)
-            {
-                progression.ResetNewGame();
-                SaveProgression();
-                return;
-            }
-
-            ProgressionProfile normalProfile = ProgressionStore.Load(normalProfilePath, legacySavePath);
-            if (normalProfile.IsReadOnlyRecovery)
-            {
-                banS = "NORMAL SAVE UNREADABLE - ORIGINAL PRESERVED";
-                banT = 4f;
-                return;
-            }
-            var normalProgression = new ProgressionService(normalProfile);
-            normalProgression.ResetNewGame();
-            try { ProgressionStore.Save(normalProgression.Profile, normalProfilePath); }
-            catch
-            {
-                banS = "SAVE FAILED - CHECK DISK SPACE";
-                banT = 4f;
-            }
+            // Reset only the active profile (save.json or isolated test-save.json).
+            progression.ResetNewGame();
+            SaveProgression();
         }
 
         void NotifyAbilityUnlocks(IReadOnlyList<string> unlockedIds)
@@ -328,11 +313,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             if (definition == null) return;
             if (!summoningService.IsOwned(id)) { banS = "SUMMON LOCKED - UNLOCK IT WITH EARNED DIAMONDS [M]"; banT = 1.8f; return; }
             if (summonedCompanion != null) { banS = "A SUMMON IS ALREADY ACTIVE - PRESS X"; banT = 1.5f; return; }
-#if DEBUG
             bool freeTest = summoningService.IsTestMode;
-#else
-            bool freeTest = false;
-#endif
             if (!freeTest && summonCooldown > 0) { banS = "SUMMON COOLDOWN  " + Math.Ceiling(summonCooldown) + "s"; banT = 1.2f; return; }
             if (!freeTest && P.En < definition.EnergyCost) { banS = "NEED " + definition.EnergyCost + " SOUL ENERGY"; banT = 1.2f; return; }
             float sx, sy, sz;
@@ -501,7 +482,6 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             return new Color((byte)((rgb >> 16) & 255), (byte)((rgb >> 8) & 255), (byte)(rgb & 255));
         }
 
-#if DEBUG
         public void SetTestMode(bool enabled)
         {
             if (testMode == enabled) return;
@@ -514,7 +494,6 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             banS = testMode ? "TEST MODE ENABLED" : "NORMAL MODE";
             banT = 2f;
         }
-#endif
 
         bool HasEye(string id)
         {
@@ -943,6 +922,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                     case 1: return 7;
                     case 2: return RebindableActions.Length + 1;
                     case 3: return 4;
+                    case 4: return 2;
                     default: return 1;
                 }
             }
@@ -1053,7 +1033,11 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 else settings.GraphicsQuality = (settings.GraphicsQuality + direction + QualityScales.Length) % QualityScales.Length;
                 applyVideo = true;
             }
-            else if (settingsSection == 4) settings.CameraSensitivity = Cl(settings.CameraSensitivity + direction * .1f, .25f, 2.5f);
+            else if (settingsSection == 4)
+            {
+                if (settingsRow == 0) settings.CameraSensitivity = Cl(settings.CameraSensitivity + direction * .1f, .25f, 2.5f);
+                else { SetTestMode(!testMode); return; }
+            }
             if (audioChanged) ApplyAudioVolumes();
             if (applyVideo) ApplyVideoSettings();
             SaveSettings();
@@ -1647,11 +1631,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 else Exit();
             }
             if (!capturingSettingBinding && Pr(Keys.F11)) { settings.Fullscreen = !settings.Fullscreen; ApplyVideoSettings(); SaveSettings(); }
-            if (!capturingSettingBinding && Pr(Keys.F6)) { settings.GraphicsQuality = (settings.GraphicsQuality + 1) % QualityScales.Length; ApplyVideoSettings(); SaveSettings(); banS = "RENDER QUALITY  " + (int)(renderScale * 100) + "%"; banT = 1.5f; }
+            if (!capturingSettingBinding && Pr(Keys.F6)) { settings.GraphicsQuality = (settings.GraphicsQuality + 1) % QualityScales.Length; ApplyVideoSettings(); SaveSettings(); banS = settings.GraphicsQuality == 3 ? "ULTRA GRAPHICS  -  2X RENDER" : "RENDER QUALITY  " + (int)(renderScale * 100) + "%"; banT = 1.5f; }
             if (!capturingSettingBinding && Pr(Keys.F7)) { camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880; camMouseIdle = 0; banS = "CAMERA RESET"; banT = 1.2f; }
-#if DEBUG
             if (!capturingSettingBinding && Pr(Keys.F9)) SetTestMode(!testMode);
-#endif
             if (state == "play" && PrAction("Shop"))
             {
                 shopMenuOpen = !shopMenuOpen; abilityMenuOpen = false; summoningMenuOpen = false;
