@@ -102,8 +102,9 @@ namespace Kadaya.Tests
 
             foreach (string id in new[] { "scythe", "shuriken", "kenjutsu", "hidden", "clone", "kunai", "rasengan" })
                 Require(progression.IsUnlocked(id), id + " should be unlocked after completing its milestones.");
-            Require(!progression.IsUsable("shuriken") && !progression.IsUsable("kenjutsu") && !progression.IsUsable("hidden") && !progression.IsUsable("kunai"),
-                "Later-stage abilities must remain unavailable even after their progression unlocks.");
+            Require(progression.IsUsable("shuriken") && progression.IsUsable("kenjutsu") && progression.IsUsable("hidden") &&
+                    progression.IsUsable("clone") && progression.IsUsable("kunai") && progression.IsUsable("rasengan"),
+                "Every implemented ability must become usable after its progression milestones unlock it.");
         }
 
         static void VerifySameThresholdMissionAndKillOrder()
