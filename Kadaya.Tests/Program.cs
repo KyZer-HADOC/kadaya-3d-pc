@@ -43,10 +43,14 @@ namespace Kadaya.Tests
             VerifyAbilityMenuRows();
             VerifyShopMenuModel();
             VerifyGameSettingsPersistenceAndBindings();
+            VerifyStoryScenes();
+            VerifyDialogueRunner();
+            VerifyPauseMenuModel();
 
             Console.WriteLine("Camera motion checks passed.");
             Console.WriteLine("45-mission catalog checks passed.");
             Console.WriteLine("Ability progression checks passed.");
+            Console.WriteLine("Story and pause menu checks passed.");
         }
 
         static void VerifyMissionCatalogAndCompletion()
@@ -683,6 +687,85 @@ namespace Kadaya.Tests
             foreach (AbilityMenuRow row in rows)
                 if (row.Definition.Id == id) return row;
             throw new Exception("Ability menu row not found: " + id);
+        }
+
+        static void VerifyStoryScenes()
+        {
+            int scenes = 0, ids = 0; var seen = new System.Collections.Generic.HashSet<string>();
+            foreach (StoryScene scene in StoryCatalog.All)
+            {
+                scenes++; Require(seen.Add(scene.Id), "Story scene ids must be unique: " + scene.Id);
+                Require(scene.Lines.Count > 0 && !string.IsNullOrWhiteSpace(scene.Title), "Story scene needs a title and lines: " + scene.Id);
+                foreach (DialogueLine line in scene.Lines)
+                {
+                    Require(!string.IsNullOrWhiteSpace(line.Text), "Dialogue line is empty in " + scene.Id);
+                    Require(SpriteFontText.ToSupportedGlyphs(line.Text) == line.Text, "Dialogue must use only glyphs the sprite font supports: " + scene.Id);
+                }
+                ids++;
+            }
+            Require(scenes == 10 && ids == 10, "Expected ten story scenes.");
+
+            bool kadaya = false, krayoo = false, raizen = false;
+            foreach (StoryScene scene in StoryCatalog.All)
+                foreach (DialogueLine line in scene.Lines)
+                { kadaya |= line.Speaker == StoryCatalog.Kadaya; krayoo |= line.Speaker == StoryCatalog.Krayoo; raizen |= line.Speaker == StoryCatalog.Raizen; }
+            Require(kadaya && krayoo && raizen, "Kadaya, Krayoo and Raizen must all speak in the campaign.");
+
+            int withStory = 0;
+            foreach (MissionDefinition mission in MissionCatalog.All)
+            {
+                StoryScene scene = StoryCatalog.ForMissionStart(mission);
+                if (scene != null) withStory++;
+            }
+            Require(withStory == 9, "Expected nine missions with a story scene, found " + withStory + ".");
+            Require(StoryCatalog.ForMissionStart(MissionCatalog.Get(0)) == StoryCatalog.Prologue, "Mission 1 must start with the prologue.");
+            Require(StoryCatalog.ForMissionStart(MissionCatalog.Get(14)) == StoryCatalog.ForestBoss, "Mission 15 must introduce the forest boss.");
+            Require(StoryCatalog.ForMissionStart(MissionCatalog.Get(2)) == null, "Ordinary missions must start without a cutscene.");
+            Require(StoryCatalog.ForMissionStart(null) == null, "A null mission must not start a scene.");
+        }
+
+        static void VerifyDialogueRunner()
+        {
+            var runner = new DialogueRunner(StoryCatalog.Prologue);
+            Require(runner.VisibleText.Length == 0 && !runner.Finished, "A new dialogue starts empty and unfinished.");
+            runner.Update(0.1f);
+            Require(runner.VisibleText.Length > 0 && !runner.LineComplete, "The typewriter must reveal text over time.");
+            runner.Advance();
+            Require(runner.LineComplete && runner.LineIndex == 0, "The first advance completes the line without skipping it.");
+            runner.Advance();
+            Require(runner.LineIndex == 1, "The second advance moves to the next line.");
+            runner.Skip();
+            Require(runner.Finished, "Skip must finish the scene.");
+
+            var full = new DialogueRunner(StoryCatalog.ForestChapterMid); int guard = 0;
+            while (!full.Finished && guard++ < 1000) { full.Update(10f); full.Advance(); }
+            Require(full.Finished && guard < 1000, "Advancing through every line must finish the scene.");
+
+            bool threw = false;
+            try { new DialogueRunner(null); } catch (ArgumentException) { threw = true; }
+            Require(threw, "A dialogue runner must reject a missing scene.");
+        }
+
+        static void VerifyPauseMenuModel()
+        {
+            var menu = new PauseMenuModel();
+            Require(menu.Count == 4 && menu.Index == 0 && menu.ActionAt(0) == PauseAction.Resume, "Pause menu starts on Resume.");
+            Require(menu.Confirm() == PauseAction.Resume, "Resume must not need confirmation.");
+            menu.Move(1);
+            Require(menu.ActionAt(menu.Index) == PauseAction.RestartMission, "Down moves to Restart Mission.");
+            Require(menu.Confirm() == PauseAction.None && menu.Pending == PauseAction.RestartMission, "Restart must ask for confirmation first.");
+            Require(menu.Confirm() == PauseAction.RestartMission && menu.Pending == PauseAction.None, "Second confirmation runs Restart.");
+            menu.Confirm(); menu.Move(1);
+            Require(menu.Pending == PauseAction.None, "Moving the selection cancels a pending confirmation.");
+            menu.Move(-2);
+            Require(menu.Index == 0, "Selection wraps upward past the first item (index " + menu.Index + ").");
+            menu.Move(-1);
+            Require(menu.ActionAt(menu.Index) == PauseAction.MainMenu, "Selection wraps to Main Menu.");
+            Require(menu.Confirm() == PauseAction.None && menu.Confirm() == PauseAction.MainMenu, "Main Menu needs two confirmations.");
+            menu.Select(2); menu.Confirm(); menu.Select(1);
+            Require(menu.Pending == PauseAction.None && menu.Index == 1, "Selecting another item clears the pending action.");
+            menu.Reset();
+            Require(menu.Index == 0 && menu.Pending == PauseAction.None, "Reset returns to Resume.");
         }
 
         static void RunWithTempDirectory(Action<string> action)

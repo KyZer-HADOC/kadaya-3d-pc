@@ -795,6 +795,8 @@ namespace Kadaya
                 Txt(MissionCatalog.Maps[mission.MapIndex].Name + "  /  " + mission.Name, W / 2, 368, 20, CY, 1);
                 Txt("ENTERING THE SHADOWS...", W / 2, 430, 15, Color.LightGray, 1);
             }
+            if (state == "paused") DrawPause();
+            if (state == "story") DrawStory();
             if (state == "dead") { Box(W / 2, H / 2, W, H, 0, new Color(20, 0, 10) * .65f); Txt("YOU HAVE BEEN REAPED", W / 2, 200, 84, RD, 1); Txt("LEVEL " + (lv + 1) + "     SOULS " + kills, W / 2, 320, 38, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RISE AGAIN FROM THE LAST SHRINE", W / 2, 400, 32, VI, 1); }
             if (state == "win") { Box(W / 2, H / 2, W, H, 0, new Color(10, 0, 20) * .6f); Txt("LEVEL " + (lv + 1) + " COMPLETE", W / 2, 190, 86, new Color(255, 220, 120), 1, OR); Txt("SOULS REAPED  " + kills, W / 2, 310, 38, WH, 1); if (winT > 1 && (int)(t * 1.6f) % 2 == 0) Txt(lv >= MissionCatalog.All.Count - 1 ? "ENTER  -  FINISH" : "ENTER  -  NEXT LEVEL", W / 2, 390, 34, VI, 1); }
             if (state == "end") { Box(W / 2, H / 2, W, H, 0, Color.Black * .85f); Txt("THE REAPER'S JOURNEY ENDS", W / 2, 200, 70, new Color(225, 195, 255), 1, PU); Txt("THANK YOU FOR PLAYING KADAYA", W / 2, 310, 36, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RETURN TO TITLE", W / 2, 390, 30, VI, 1); }

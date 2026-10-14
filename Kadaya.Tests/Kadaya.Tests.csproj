@@ -17,5 +17,7 @@
     <Compile Include="..\GameSettings.cs" Link="GameSettings.cs" />
     <Compile Include="..\ShopMenuModel.cs" Link="ShopMenuModel.cs" />
     <Compile Include="..\MissionCatalog.cs" Link="MissionCatalog.cs" />
+    <Compile Include="..\StoryScenes.cs" Link="StoryScenes.cs" />
+    <Compile Include="..\PauseMenuModel.cs" Link="PauseMenuModel.cs" />
   </ItemGroup>
 </Project>

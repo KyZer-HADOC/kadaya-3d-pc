@@ -1628,6 +1628,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 }
                 else if (state == "play" && (abilityMenuOpen || shopMenuOpen || summoningMenuOpen))
                 { abilityMenuOpen = shopMenuOpen = summoningMenuOpen = false; }
+                else if (state == "play") OpenPause();
+                else if (state == "paused") state = "play";
+                else if (state == "story") SkipStory();
                 else Exit();
             }
             if (!capturingSettingBinding && Pr(Keys.F11)) { settings.Fullscreen = !settings.Fullscreen; ApplyVideoSettings(); SaveSettings(); }
@@ -1660,7 +1663,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             else if (state == "launch")
             {
                 launchDelay -= dt;
-                if (launchDelay <= 0) { MissionDefinition mission = MissionCatalog.Get(queuedMenuLevel); LoadLevel(queuedMenuLevel, mission.SpawnX, mission.SpawnZ); state = "play"; enteredPlayThisFrame = true; }
+                if (launchDelay <= 0) { MissionDefinition mission = MissionCatalog.Get(queuedMenuLevel); LoadLevel(queuedMenuLevel, mission.SpawnX, mission.SpawnZ); state = "play"; enteredPlayThisFrame = true; TryBeginStory(StoryCatalog.ForMissionStart(mission)); }
             }
             else if (state == "dead") { if (PrAction("Confirm")) { LoadLevel(lv, checkX, checkZ); state = "play"; enteredPlayThisFrame = true; } }
             else if (state == "win")
@@ -1670,15 +1673,17 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 {
                     if (lv >= MissionCatalog.All.Count - 1)
                     {
-                        SaveProgression(); state = "end"; winT = 0;
+                        GoToEnd();
                     }
                     else
                     {
-                        lv = Math.Min(MissionCatalog.All.Count - 1, lv + 1); SaveProgression(); LoadLevel(lv, 250); state = "play"; enteredPlayThisFrame = true;
+                        lv = Math.Min(MissionCatalog.All.Count - 1, lv + 1); SaveProgression(); LoadLevel(lv, 250); state = "play"; enteredPlayThisFrame = true; TryBeginStory(StoryCatalog.ForMissionStart(MissionCatalog.Get(lv)));
                     }
                 }
             }
             else if (state == "end") { if (PrAction("Confirm")) { LoadLevel(0, 250); state = "title"; titlePage = "main"; } }
+            else if (state == "story") { UpdateStory(dt); if (state == "play") enteredPlayThisFrame = true; }
+            else if (state == "paused") { UpdatePause(); if (state == "play") enteredPlayThisFrame = true; }
             if (state == "play" && !enteredPlayThisFrame) { if (hitstop > 0) { hitstop -= dt; dt *= .1f; } UpdatePlay(dt); }
             UpdateMenuMusic();
             UpdFx(dt); base.Update(gt);

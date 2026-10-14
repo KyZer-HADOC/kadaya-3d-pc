@@ -53,6 +53,12 @@ Route codes list the gameplay sections in order: `E` enemy encounter, `G` gap cr
 | Buy / upgrade | B / U |
 | Graphics quality / camera reset / fullscreen | F6 / F7 / F11 |
 
+### Pause menu and story scenes
+
+Press **Escape** during a mission to open the pause menu (Resume, Restart Mission, Mission Select, Main Menu). The simulation is frozen while it is open. Restart, Mission Select and Main Menu ask for a second Enter press because they discard progress in the current mission. Escape again resumes. The in-game Settings page is only reachable from the main menu.
+
+Nine missions start with a short dialogue scene between Kadaya, Krayoo and Raizen (mission 1, 8 and 15 of every map), and the campaign ends with an epilogue scene. Enter, Space or a left click advances (the first press completes the typed line), Escape skips the scene. Each scene plays once per game session and is not saved. The text is subtitles only; there are no voice recordings. Raizen speaks in these scenes but is not yet a playable boss fight: the map bosses are his champions.
+
 Settings can rebind the listed keyboard actions. Mouse buttons remain the melee and Rasengan controls. Settings navigation uses Page Up/Page Down for sections, arrows to change a selected setting, Enter to toggle or capture a key, and Escape to go back. Escape exits from the main menu.
 
 ## Abilities and progression
