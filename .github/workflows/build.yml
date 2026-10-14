@@ -26,7 +26,17 @@ jobs:
         run: dotnet tool restore
 
       - name: Publish game (self-contained, win-x64)
-        run: dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+        run: dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false -p:PublishReadyToRun=false -p:TieredCompilation=false -p:DebugType=None -p:DebugSymbols=false -o publish
+
+      - name: Ensure SDL2 native runtime is beside Kadaya.exe
+        shell: pwsh
+        run: |
+          $publishRoot = (Resolve-Path "publish").Path
+          $sdl = Get-ChildItem -Path $publishRoot -Recurse -File -Filter "SDL2.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $sdl) { throw "SDL2.dll is missing from the published MonoGame runtime. Refusing to package a game that crashes on startup." }
+          $destination = Join-Path $publishRoot "SDL2.dll"
+          if ($sdl.FullName -ne $destination) { Copy-Item -LiteralPath $sdl.FullName -Destination $destination -Force }
+          if ((Get-Item -LiteralPath $destination).Length -le 0) { throw "Published SDL2.dll is empty." }
 
       - name: Verify published game and audio content
         shell: pwsh
