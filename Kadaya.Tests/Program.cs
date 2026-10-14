@@ -136,6 +136,7 @@ namespace Kadaya.Tests
             var upgradesBefore = new Dictionary<string, int>(profile.UpgradeLevels);
             var testMode = new ProgressionService(profile, true);
 
+#if DEBUG
             foreach (AbilityDefinition ability in AbilityCatalog.All)
             {
                 bool shouldBeAvailable = ability.IsImplemented;
@@ -145,6 +146,10 @@ namespace Kadaya.Tests
                     Require(testMode.GetUpgradeLevel(ability.Id) == ability.MaximumUpgradeLevel,
                         ability.Id + " must use its registered maximum upgrade in Test Mode.");
             }
+#else
+            Require(!testMode.IsUsable("clone") && !testMode.IsUsable("rasengan"),
+                "Release builds must not activate the Debug-only Test Mode grants.");
+#endif
 
             Require(!normal.IsUnlocked("clone") && !normal.IsUnlocked("rasengan"), "Test Mode must not grant abilities to the normal service.");
             Require(SameItems(unlockedBefore, profile.UnlockedAbilityIds), "Test Mode must not persist its grants.");
