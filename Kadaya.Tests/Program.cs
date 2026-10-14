@@ -32,16 +32,18 @@ namespace Kadaya.Tests
             VerifyProfileJsonRoundTrip();
             VerifyNormalAndTestPathsAreSeparate();
             VerifyNormalAndTestProfileSaveIsolation();
-            VerifyPremiumSummoningCatalogAndOwnership();
+            VerifySummoningCatalogAndOwnership();
             VerifySummonUpgradesUseShards();
 #if DEBUG
             VerifyTestModeSummoningGrantsAreTemporary();
 #endif
             VerifySummoningEconomyRewardsPersist();
-            VerifyPremiumShopAndEyeOwnership();
+            VerifyShopAndEyeOwnership();
             VerifyAbilityAndSusanooShardUpgrades();
             VerifyDevelopmentTestModeSettings();
             VerifyAbilityMenuRows();
+            VerifyShopMenuModel();
+            VerifyGameSettingsPersistenceAndBindings();
 
             Console.WriteLine("Camera motion checks passed.");
             Console.WriteLine("Ability progression checks passed.");
@@ -198,7 +200,7 @@ namespace Kadaya.Tests
             Require(SameItems(new List<string> { "scythe" }, profile.UnlockedAbilityIds), "New Game must retain only the starting Scythe unlock.");
             Require(profile.OwnedContentIds.Count == 4 && profile.OwnedContentIds.Contains("summon.small-toad") && profile.OwnedContentIds.Contains("eye.byakugan") &&
                 profile.EquippedEyeId == "byakugan" && profile.EquippedWeaponId == "katana" && profile.EquippedSageModeId == "sage.toad" && profile.EquippedSummonId == "small-toad",
-                "New Game must preserve permanent premium purchases and equipment.");
+                "New Game must preserve permanent shop purchases and equipment.");
             Require(profile.UpgradeLevels.Count == 2 && profile.UpgradeLevels["clone"] == 2 && profile.UpgradeLevels["summon.small-toad"] == 2 &&
                 profile.CurrencyBalances["money"] == 150 && profile.CurrencyBalances["diamonds"] == 30 && profile.CurrencyBalances["shards"] == 20,
                 "New Game must preserve permanent upgrades and all wallet balances.");
@@ -357,11 +359,11 @@ namespace Kadaya.Tests
             });
         }
 
-        static void VerifyPremiumSummoningCatalogAndOwnership()
+        static void VerifySummoningCatalogAndOwnership()
         {
             var profile = new ProgressionProfile();
             var summoning = new SummoningService(profile);
-            Require(SummoningCatalog.All.Count == 29, "The premium catalog must contain the requested standard and legendary summons.");
+            Require(SummoningCatalog.All.Count == 29, "The summon catalog must contain the standard and legendary summons.");
             var ids = new List<string>();
             foreach (SummoningDefinition definition in SummoningCatalog.All)
             {
@@ -399,7 +401,7 @@ namespace Kadaya.Tests
             var summoning = new SummoningService(profile);
             string reason;
             SummoningDefinition definition = SummoningCatalog.Get("small-toad");
-            Require(!summoning.TryUpgrade(definition.Id, out reason), "Summons must not be upgradeable before premium ownership.");
+            Require(!summoning.TryUpgrade(definition.Id, out reason), "Summons must be unlocked before their shard upgrades.");
             profile.CurrencyBalances["diamonds"] = definition.DiamondPrice;
             Require(summoning.TryPurchase(definition.Id, out reason), "Upgrade test setup must purchase the summon.");
             Require(!summoning.TryUpgrade(definition.Id, out reason), "Summon upgrades must require Shards.");
@@ -422,7 +424,7 @@ namespace Kadaya.Tests
                     definition.Name + " must be max-upgraded in Test Mode.");
             }
             Require(profile.OwnedContentIds.Count == 0 && profile.UpgradeLevels.Count == 0,
-                "Test Mode must not write premium ownership or upgrades into the normal profile.");
+                "Test Mode must not write test ownership or upgrades into the normal profile.");
             Require(testMode.GetStats("shadow-emperor").SpecialDamageMultiplier > 1,
                 "Legendary Test Mode summons must receive maximum special attack upgrades.");
         }
@@ -448,26 +450,28 @@ namespace Kadaya.Tests
             });
         }
 
-        static void VerifyPremiumShopAndEyeOwnership()
+        static void VerifyShopAndEyeOwnership()
         {
             var profile = new ProgressionProfile();
-            var shop = new PremiumShopService(profile);
+            var shop = new ShopService(profile);
             string[] eyeIds = { "sharingan", "mangekyo", "byakugan", "kakashi", "ems", "jougan", "rinnegan" };
             foreach (string id in eyeIds)
                 Require(!shop.IsOwned("eye." + id), id + " must be locked until a normal player purchases it.");
 
             string reason;
-            ShopItem katana = PremiumShopCatalog.Get("weapon.katana");
+            ShopItem katana = ShopCatalog.Get("weapon.katana");
             Require(!shop.TryPurchase(katana.Id, out reason), "Money shop items must reject an insufficient balance.");
             profile.CurrencyBalances["money"] = katana.Price;
             Require(shop.TryPurchase(katana.Id, out reason) && profile.EquippedWeaponId == "katana",
                 "A purchased weapon must debit Money and equip through the existing profile.");
             Require(profile.CurrencyBalances["money"] == 0 && shop.IsOwned(katana.Id), "Weapon ownership and Money debit must persist in profile state.");
 
-            ShopItem byakugan = PremiumShopCatalog.Get("eye.byakugan");
+            ShopItem byakugan = ShopCatalog.Get("eye.byakugan");
+            Require(PremiumShopCatalog.Get("weapon.katana") == katana && new PremiumShopService(profile).IsOwned(katana.Id),
+                "The original public shop type names must remain available as compatibility aliases.");
             profile.CurrencyBalances["diamonds"] = byakugan.Price;
             Require(shop.TryPurchase(byakugan.Id, out reason) && profile.EquippedEyeId == "byakugan",
-                "Premium eyes must unlock and equip through the Diamonds shop.");
+                "Eyes must unlock and equip through the earned-Diamonds shop.");
             Require(profile.CurrencyBalances["diamonds"] == 0 && shop.TryEquip("eye.byakugan", out reason),
                 "Purchased eyes must remain owned and re-equippable.");
 
@@ -477,17 +481,17 @@ namespace Kadaya.Tests
                 ProgressionStore.Save(profile, path);
                 ProgressionProfile loaded = ProgressionStore.Load(path, null);
                 Require(loaded.OwnedContentIds.Contains("eye.byakugan") && loaded.EquippedEyeId == "byakugan" && loaded.EquippedWeaponId == "katana",
-                    "Premium shop ownership and equipped eye/weapon IDs must survive save and reload.");
+                    "Shop ownership and equipped eye/weapon IDs must survive save and reload.");
             });
 
 #if DEBUG
             var testProfile = new ProgressionProfile();
-            var testShop = new PremiumShopService(testProfile, true);
-            foreach (ShopItem item in PremiumShopCatalog.All)
+            var testShop = new ShopService(testProfile, true);
+            foreach (ShopItem item in ShopCatalog.All)
                 Require(testShop.IsOwned(item.Id), "Test Mode must provide immediate access to " + item.Id + ".");
             Require(testShop.GetSusanooLevel() == 9 && testShop.GetSusanooDuration() == 12f,
                 "Test Mode must grant maximum Susanoo duration without normal purchases.");
-            Require(testProfile.OwnedContentIds.Count == 0, "Test Mode shop access must not write premium ownership into the profile.");
+            Require(testProfile.OwnedContentIds.Count == 0, "Test Mode shop access must not write test ownership into the profile.");
 #endif
         }
 
@@ -503,9 +507,9 @@ namespace Kadaya.Tests
             Require(progression.TryUpgrade("shuriken", out reason) && progression.GetUpgradeLevel("shuriken") == 1 && profile.CurrencyBalances["shards"] == 0,
                 "Unlocked abilities must consume Shards to upgrade.");
 
-            var shop = new PremiumShopService(profile);
+            var shop = new ShopService(profile);
             Require(!shop.TryUpgradeSusanoo(out reason), "Susanoo duration must require the Eternal Mangekyo eye.");
-            ShopItem ems = PremiumShopCatalog.Get("eye.ems");
+            ShopItem ems = ShopCatalog.Get("eye.ems");
             profile.CurrencyBalances["diamonds"] = ems.Price;
             Require(shop.TryPurchase(ems.Id, out reason) && Math.Abs(shop.GetSusanooDuration() - 3f) < .001f,
                 "Susanoo must begin with its three-second base duration.");
@@ -585,6 +589,49 @@ namespace Kadaya.Tests
             Require(FindMenuRow(testRows, "clone").Status == "Locked" && FindMenuRow(testRows, "rasengan").Status == "Locked",
                 "Release builds must keep Debug-only Test Mode abilities locked until normal progression unlocks them.");
 #endif
+        }
+
+        static void VerifyShopMenuModel()
+        {
+            Require(ShopMenuModel.Build(ShopCategory.Eyes).Count == 7, "The redesigned shop must list all seven implemented eye powers.");
+            Require(ShopMenuModel.Build(ShopCategory.Swords).Count == 4, "The sword category must include the starting Scythe and all three catalog weapons.");
+            Require(ShopMenuModel.Build(ShopCategory.Susano).Count == 2, "The Susano category must list the two implemented aura variants.");
+            Require(ShopMenuModel.Build(ShopCategory.Special).Count == 10, "Special must include all seven core abilities and three Sage Modes.");
+            Require(ShopMenuModel.Build(ShopCategory.Summons).Count == 29, "The summon category must include every implemented summon definition.");
+            Require(ShopMenuModel.Build(ShopCategory.Special)[0].Kind == ShopMenuEntryKind.Ability &&
+                ShopMenuModel.Build(ShopCategory.Summons)[28].Summon.Id == "shadow-emperor",
+                "Shop entries must preserve their actual gameplay catalog records.");
+        }
+
+        static void VerifyGameSettingsPersistenceAndBindings()
+        {
+            var settings = new GameSettings();
+            Require(settings.TrySetBinding("MoveForward", "H"), "A valid unused key must be assignable.");
+            Require(!settings.TrySetBinding("MoveLeft", "H"), "A key already used by another action must be rejected.");
+            Require(!settings.TrySetBinding("MoveLeft", "F11"), "A reserved system key must not be assignable.");
+            Require(!settings.TrySetBinding("UnknownAction", "J"), "Unknown actions must not be persisted as controls.");
+
+            settings.MasterVolume = 1.4f;
+            settings.MusicVolume = .35f;
+            settings.HudScale = 1.2f;
+            settings.HudOffsetX = 35;
+            settings.Muted = true;
+            settings.Fullscreen = true;
+            settings.GraphicsQuality = 2;
+            settings.Normalize();
+            Require(Math.Abs(settings.MasterVolume - 1f) < .001f, "Settings values must clamp to their valid range.");
+            Require(settings.Muted && settings.Fullscreen && settings.GraphicsQuality == 2, "Boolean and graphics preferences must remain selectable.");
+
+            RunWithTempDirectory(root =>
+            {
+                string path = GameSettingsStore.GetPath(root);
+                GameSettingsStore.Save(settings, path);
+                GameSettings loaded = GameSettingsStore.Load(path);
+                Require(loaded.Muted && loaded.Fullscreen && Math.Abs(loaded.MusicVolume - .35f) < .001f,
+                    "Audio and display settings must persist in their independent settings file.");
+                Require(loaded.GetBinding("MoveForward") == "H" && loaded.HudOffsetX == 35 && Math.Abs(loaded.HudScale - 1.2f) < .001f,
+                    "Key bindings and HUD preferences must persist.");
+            });
         }
 
         static AbilityMenuRow FindMenuRow(IReadOnlyList<AbilityMenuRow> rows, string id)

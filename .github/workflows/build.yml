@@ -19,7 +19,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Check camera motion
+      - name: Run progression, shop, settings, and camera checks
         run: dotnet run --project Kadaya.Tests/Kadaya.Tests.csproj -c Release
 
       - name: Restore tools
@@ -27,6 +27,25 @@ jobs:
 
       - name: Publish game (self-contained, win-x64)
         run: dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+
+      - name: Verify published game and audio content
+        shell: pwsh
+        run: |
+          $expected = @(
+            "publish/Kadaya.exe",
+            "publish/Content/Audio/MainMenu_Music.xnb",
+            "publish/Content/Audio/Reaper_Scythe_Attack.xnb",
+            "publish/Content/Audio/Reaper_Transformation.xnb"
+          )
+          foreach ($relativePath in $expected) {
+            $path = Join-Path $env:GITHUB_WORKSPACE $relativePath
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Published output is missing required file: $relativePath"
+            }
+            if ((Get-Item -LiteralPath $path).Length -le 0) {
+              throw "Published output contains an empty file: $relativePath"
+            }
+          }
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress

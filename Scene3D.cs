@@ -636,8 +636,9 @@ namespace Kadaya
                 {
                     float scale = W / (float)bounds.Width;
                     int dx = ms.X - centerX, dy = ms.Y - centerY;
-                    camYaw += CameraMotion.MouseYawDelta(dx, scale);
-                    camPitch = Cl(camPitch + CameraMotion.MousePitchDelta(dy, scale), -.12f, .72f);
+                    float sensitivity = settings == null ? 1f : settings.CameraSensitivity;
+                    camYaw += CameraMotion.MouseYawDelta(dx, scale) * sensitivity;
+                    camPitch = Cl(camPitch + CameraMotion.MousePitchDelta(dy, scale) * sensitivity, -.12f, .72f);
                     if (Math.Abs(dx) + Math.Abs(dy) > 1) camMouseIdle = 0;
                     else camMouseIdle += dt;
                     if (!byakuganScout && camMouseIdle > .8f && (Math.Abs(P.Vx) + Math.Abs(P.Vz) > 90 || P.Dash > 0))
@@ -685,10 +686,28 @@ namespace Kadaya
             if (state == "play" && P.Hp < 35) Box(W / 2, H / 2, W, H, 0, new Color(120, 0, 20) * (.12f + .1f * MathF.Sin(t * 8)));
             if (flash > 0) Box(W / 2, H / 2, W, H, 0, WH * (flash * .6f));
             Box(W / 2, 14, W, 28, 0, Color.Black * .85f); Box(W / 2, H - 14, W, 28, 0, Color.Black * .0f);
-            if (state == "play") DrawHud();
+            sb.End();
+            if (state == "play" && settings != null && settings.ShowHud)
+            {
+                Matrix hudTransform = Matrix.CreateTranslation(-W / 2f, -H / 2f, 0) * Matrix.CreateScale(settings.HudScale) *
+                    Matrix.CreateTranslation(W / 2f + settings.HudOffsetX, H / 2f + settings.HudOffsetY, 0) * m;
+                sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, hudTransform);
+                DrawHud();
+                sb.End();
+            }
+            sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, null, null, m);
+            if (state == "play")
+            {
+                if (abilityMenuOpen) DrawAbilityMenu();
+                if (summoningMenuOpen) DrawSummoningMenu();
+                if (shopMenuOpen) DrawShopMenu();
+            }
             if (state == "title")
             {
                 if (levelSelectOpen) DrawMissionSelect();
+                else if (titlePage == "shop") DrawShopMenu();
+                else if (titlePage == "upgrade") DrawUpgradeScreen();
+                else if (titlePage == "settings") DrawSettingsScreen();
                 else DrawMainMenu();
             }
             if (state == "launch")

@@ -19,7 +19,7 @@ namespace Kadaya
         { Id = id; Name = name; Description = description; Kind = kind; Currency = currency; Price = price; }
     }
 
-    public static class PremiumShopCatalog
+    public static class ShopCatalog
     {
         private static readonly ReadOnlyCollection<ShopItem> items = new ReadOnlyCollection<ShopItem>(new List<ShopItem>
         {
@@ -33,9 +33,9 @@ namespace Kadaya
             new ShopItem("weapon.katana", "Moonlit Katana", "A sharp sword with a faster, stronger melee combo.", ShopItemKind.Weapon, "money", 450),
             new ShopItem("weapon.chakra", "Chakra Blade", "A balanced chakra-edged sword.", ShopItemKind.Weapon, "money", 800),
             new ShopItem("weapon.lightning", "Lightning Blade", "A high-impact lightning weapon.", ShopItemKind.Weapon, "diamonds", 90),
-            new ShopItem("sage.toad", "Toad Sage Mode", "Boosts melee damage and movement while active.", ShopItemKind.SageMode, "diamonds", 120),
-            new ShopItem("sage.snake", "Snake Sage Mode", "Boosts ranged damage and grants regeneration.", ShopItemKind.SageMode, "diamonds", 140),
-            new ShopItem("sage.sixpaths", "Six Paths Sage Mode", "A legendary, short-lived combat enhancement.", ShopItemKind.SageMode, "diamonds", 240),
+            new ShopItem("sage.toad", "Toad Sage Mode", "Boosts scythe damage and slowly regenerates health while active.", ShopItemKind.SageMode, "diamonds", 120),
+            new ShopItem("sage.snake", "Snake Sage Mode", "Boosts scythe damage and grants strong health regeneration.", ShopItemKind.SageMode, "diamonds", 140),
+            new ShopItem("sage.sixpaths", "Six Paths Sage Mode", "Longest activation with the strongest scythe damage and steady regeneration.", ShopItemKind.SageMode, "diamonds", 240),
             new ShopItem("susanoo.azure", "Azure Susanoo", "Change the Susanoo avatar's aura.", ShopItemKind.SusanooVariant, "diamonds", 100),
             new ShopItem("susanoo.crimson", "Crimson Susanoo", "Change the Susanoo avatar's aura.", ShopItemKind.SusanooVariant, "diamonds", 100)
         });
@@ -48,13 +48,13 @@ namespace Kadaya
         }
     }
 
-    public sealed class PremiumShopService
+    public class ShopService
     {
         private readonly ProgressionProfile profile;
 #if DEBUG
         private readonly bool testMode;
 #endif
-        public PremiumShopService(ProgressionProfile profile, bool testMode = false)
+        public ShopService(ProgressionProfile profile, bool testMode = false)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
 #if DEBUG
@@ -67,7 +67,7 @@ namespace Kadaya
 
         public bool IsOwned(string id)
         {
-            if (PremiumShopCatalog.Get(id) == null) return false;
+            if (ShopCatalog.Get(id) == null) return false;
 #if DEBUG
             if (testMode) return true;
 #endif
@@ -88,7 +88,7 @@ namespace Kadaya
 
         public bool TryPurchase(string id, out string reason)
         {
-            ShopItem item = PremiumShopCatalog.Get(id);
+            ShopItem item = ShopCatalog.Get(id);
             if (item == null) { reason = "Unknown shop item."; return false; }
             if (IsOwned(id)) { reason = "Already owned."; return false; }
             int balance = GetBalance(item.Currency);
@@ -105,7 +105,7 @@ namespace Kadaya
 
         public bool TryEquip(string id, out string reason)
         {
-            ShopItem item = PremiumShopCatalog.Get(id);
+            ShopItem item = ShopCatalog.Get(id);
             if (item == null) { reason = "Unknown shop item."; return false; }
             if (!IsOwned(id)) { reason = "Purchase this item first."; return false; }
             if (item.Kind == ShopItemKind.Eye) profile.EquippedEyeId = item.Id.Substring("eye.".Length);
@@ -113,6 +113,30 @@ namespace Kadaya
             else if (item.Kind == ShopItemKind.SageMode) profile.EquippedSageModeId = item.Id;
             else profile.EquippedSusanooVariantId = item.Id;
             reason = item.Name + " equipped.";
+            return true;
+        }
+
+        public bool IsEquipped(string id)
+        {
+            ShopItem item = ShopCatalog.Get(id);
+            if (item == null) return false;
+            if (item.Kind == ShopItemKind.Eye) return profile.EquippedEyeId == item.Id.Substring("eye.".Length);
+            if (item.Kind == ShopItemKind.Weapon) return profile.EquippedWeaponId == item.Id.Substring("weapon.".Length);
+            if (item.Kind == ShopItemKind.SageMode) return profile.EquippedSageModeId == item.Id;
+            return profile.EquippedSusanooVariantId == item.Id;
+        }
+
+        public bool TryUnequip(string id, out string reason)
+        {
+            ShopItem item = ShopCatalog.Get(id);
+            if (item == null) { reason = "Unknown shop item."; return false; }
+            if (!IsOwned(id)) { reason = "Unlock this item first."; return false; }
+            if (!IsEquipped(id)) { reason = item.Name + " is not equipped."; return false; }
+            if (item.Kind == ShopItemKind.Eye) profile.EquippedEyeId = string.Empty;
+            else if (item.Kind == ShopItemKind.Weapon) { profile.EquippedWeaponId = string.Empty; profile.EquippedItemId = string.Empty; }
+            else if (item.Kind == ShopItemKind.SageMode) profile.EquippedSageModeId = string.Empty;
+            else profile.EquippedSusanooVariantId = string.Empty;
+            reason = item.Name + " unequipped.";
             return true;
         }
 
@@ -147,5 +171,18 @@ namespace Kadaya
         private int GetBalance(string currency)
         { int value; return profile.CurrencyBalances.TryGetValue(currency, out value) ? Math.Max(0, value) : 0; }
         private void SetBalance(string currency, int value) { profile.CurrencyBalances[currency] = Math.Max(0, value); }
+    }
+
+    // Keep the original public type names available for existing integrations and saves.
+    // These are compatibility aliases only; purchases still use earned in-game currency.
+    public static class PremiumShopCatalog
+    {
+        public static IReadOnlyList<ShopItem> All { get { return ShopCatalog.All; } }
+        public static ShopItem Get(string id) { return ShopCatalog.Get(id); }
+    }
+
+    public sealed class PremiumShopService : ShopService
+    {
+        public PremiumShopService(ProgressionProfile profile, bool testMode = false) : base(profile, testMode) { }
     }
 }

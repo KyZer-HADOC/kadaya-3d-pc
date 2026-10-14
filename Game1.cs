@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
 
 namespace Kadaya
 {
@@ -34,12 +35,17 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         bool levelSelectOpen;
         int mainMenuIndex, selectedMenuLevel, queuedMenuLevel;
         float launchDelay;
+        string titlePage = "main";
         ProgressionService progression;
         SummoningService summoningService;
-        PremiumShopService shopService;
+        ShopService shopService;
         SummonedCompanion summonedCompanion;
-        int selectedSummonIndex;
-        int selectedShopIndex, selectedAbilityIndex;
+        int selectedShopIndex, selectedAbilityIndex, selectedUpgradeIndex, selectedShopCategory;
+        int settingsSection, settingsRow;
+        bool capturingSettingBinding;
+        string capturingSettingAction = string.Empty;
+        GameSettings settings;
+        string settingsPath;
         bool shopMenuOpen, byakuganScout, futureVision;
         float scoutX, scoutZ, rotationT, freezeT, susanooT, susanooCd, eyeCooldown, pushCooldown, genjutsuCooldown, sageT, sageCd;
         float shurikenCd, kenjutsuCd, hiddenCd, kunaiCd, hiddenT;
@@ -63,13 +69,16 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         static float Rf(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
         static float Cl(float v, float a, float b) => Math.Max(a, Math.Min(b, v));
         static int Sg(float v) => v >= 0 ? 1 : -1;
-        static Color Ad(Color c, float k) => new Color(c.R / 255f * k, c.G / 255f * k, c.B / 255f * k, 0f);
+        static Color Ad(Color c, float k) => new Color(c.R / 255f * k, c.G / 255f * k, c.B / 255f * k, Cl(k, 0, 1));
         static Color Pm(float a) => new Color(a, a, a, a);
 
         protected override void LoadContent()
         {
             sb = new SpriteBatch(GraphicsDevice); font = Content.Load<SpriteFont>("Font");
-            CreateRenderTargets();
+            InitializeSettings();
+            try { menuMusicSong = Content.Load<Song>("Audio/MainMenu_Music"); } catch { }
+            try { scytheAttackSound = Content.Load<SoundEffect>("Audio/Reaper_Scythe_Attack"); } catch { }
+            try { transformationSong = Content.Load<Song>("Audio/Reaper_Transformation"); } catch { }
             px = new Texture2D(GraphicsDevice, 1, 1); px.SetData(new[] { Color.White });
             circ = Make(64, (u, v) => { float r = MathF.Sqrt(u * u + v * v); return Pm(Cl((1 - r) * 32, 0, 1)); });
             glow = Make(128, (u, v) => { float r = MathF.Sqrt(u * u + v * v); return Pm(MathF.Pow(Cl(1 - r, 0, 1), 2.2f)); });
@@ -79,7 +88,76 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             for (int i = 0; i < 140; i++) { stars[i, 0] = Rf(0, W); stars[i, 1] = Rf(0, 420); stars[i, 2] = Rf(.5f, 2); stars[i, 3] = Rf(0, 6); }
             for (int i = 0; i < 120; i++) { amb[i, 0] = Rf(0, W); amb[i, 1] = Rf(0, H); amb[i, 2] = Rf(-20, 20); amb[i, 3] = Rf(15, 60); amb[i, 4] = Rf(1.5f, 4); }
             Init3D(); InitializeProgression(); LoadLevel(lv, 250); state = "title";
+            UpdateMenuMusic();
         }
+
+        static readonly int[] ResolutionWidths = { 1280, 1600, 1920 };
+        static readonly int[] ResolutionHeights = { 720, 900, 1080 };
+        static readonly float[] QualityScales = { 1f, 1.25f, 1.5f };
+
+        void InitializeSettings()
+        {
+            string appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            settingsPath = GameSettingsStore.GetPath(appDataRoot);
+            settings = GameSettingsStore.Load(settingsPath);
+            ApplyVideoSettings();
+            ApplyAudioVolumes();
+        }
+
+        void SaveSettings()
+        {
+            if (settings == null) return;
+            try { GameSettingsStore.Save(settings, settingsPath); }
+            catch { banS = "SETTINGS SAVE FAILED"; banT = 2f; }
+        }
+
+        void ApplyVideoSettings()
+        {
+            if (settings == null) return;
+            settings.Normalize();
+            renderScale = QualityScales[settings.GraphicsQuality];
+            gdm.PreferredBackBufferWidth = ResolutionWidths[settings.ResolutionIndex];
+            gdm.PreferredBackBufferHeight = ResolutionHeights[settings.ResolutionIndex];
+            gdm.IsFullScreen = settings.Fullscreen;
+            gdm.SynchronizeWithVerticalRetrace = settings.VSync;
+            IsFixedTimeStep = settings.VSync;
+            try { gdm.ApplyChanges(); }
+            catch
+            {
+                // Some displays cannot enter a requested fullscreen mode or resolution.
+                settings.ResolutionIndex = 0; settings.Fullscreen = false; settings.VSync = true; settings.GraphicsQuality = 0;
+                renderScale = QualityScales[0];
+                gdm.PreferredBackBufferWidth = W; gdm.PreferredBackBufferHeight = H;
+                gdm.IsFullScreen = false; gdm.SynchronizeWithVerticalRetrace = true; IsFixedTimeStep = true;
+                try { gdm.ApplyChanges(); } catch { }
+                SaveSettings();
+            }
+            CreateRenderTargets();
+        }
+
+        void ApplyAudioVolumes()
+        {
+            if (settings == null) return;
+            float master = settings.Muted ? 0 : settings.MasterVolume;
+            if (musInst != null) musInst.Volume = Cl(master * settings.MusicVolume, 0, 1);
+            float mediaVolume = transformationSongActive ? settings.EffectsVolume : settings.MusicVolume;
+            MediaPlayer.Volume = Cl(master * mediaVolume, 0, 1);
+        }
+
+        void ApplySfxVolumes()
+        {
+            float master = settings == null || settings.Muted ? 0 : settings.MasterVolume;
+            MediaPlayer.Volume = Cl(master * (settings == null ? .8f : settings.EffectsVolume), 0, 1);
+        }
+
+        Keys BoundKey(string action, Keys fallback)
+        {
+            Keys key;
+            return settings != null && Enum.TryParse(settings.GetBinding(action), true, out key) ? key : fallback;
+        }
+
+        bool DnAction(string action) => cur.IsKeyDown(BoundKey(action, Keys.None));
+        bool PrAction(string action) => cur.IsKeyDown(BoundKey(action, Keys.None)) && prev.IsKeyUp(BoundKey(action, Keys.None));
         void CreateRenderTargets()
         {
             if (rt != null) rt.Dispose(); if (small != null) small.Dispose();
@@ -137,11 +215,11 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
 #if DEBUG
             progression = new ProgressionService(profile, IsTestMode);
             summoningService = new SummoningService(profile, IsTestMode);
-            shopService = new PremiumShopService(profile, IsTestMode);
+            shopService = new ShopService(profile, IsTestMode);
 #else
             progression = new ProgressionService(profile);
             summoningService = new SummoningService(profile);
-            shopService = new PremiumShopService(profile);
+            shopService = new ShopService(profile);
 #endif
             lv = progression.Profile.UnlockedLevel;
         }
@@ -210,9 +288,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             SummoningEconomy.AwardEnemyDefeat(progression.Profile, boss);
         }
 
-        SummoningDefinition SelectedSummon
+        IReadOnlyList<ShopMenuEntry> CurrentShopEntries
         {
-            get { return SummoningCatalog.All.Count == 0 ? null : SummoningCatalog.All[(int)Cl(selectedSummonIndex, 0, SummoningCatalog.All.Count - 1)]; }
+            get { return ShopMenuModel.Build((ShopCategory)Math.Max(0, Math.Min(4, selectedShopCategory))); }
         }
 
         bool TryFindSummonSpawn(out float spawnX, out float spawnY, out float spawnZ)
@@ -238,7 +316,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             SummoningDefinition definition = SummoningCatalog.Get(id);
             if (definition == null) return;
-            if (!summoningService.IsOwned(id)) { banS = "PREMIUM LOCKED - OPEN SUMMON VAULT [M]"; banT = 1.8f; return; }
+            if (!summoningService.IsOwned(id)) { banS = "SUMMON LOCKED - UNLOCK IT WITH EARNED DIAMONDS [M]"; banT = 1.8f; return; }
             if (summonedCompanion != null) { banS = "A SUMMON IS ALREADY ACTIVE - PRESS X"; banT = 1.5f; return; }
 #if DEBUG
             bool freeTest = summoningService.IsTestMode;
@@ -297,32 +375,6 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             Burst(old.X, G - old.Y - 45, 24, color, 260, 4, -100, .55f, old.Z);
             summonedCompanion = null;
             if (message) { banS = "SUMMON DISMISSED"; banT = 1.2f; }
-        }
-
-        void HandleSummoningMenuInput()
-        {
-            if (Pr(Keys.Up)) selectedSummonIndex = (selectedSummonIndex + SummoningCatalog.All.Count - 1) % SummoningCatalog.All.Count;
-            if (Pr(Keys.Down)) selectedSummonIndex = (selectedSummonIndex + 1) % SummoningCatalog.All.Count;
-            SummoningDefinition definition = SelectedSummon;
-            if (definition == null) return;
-            string reason;
-            if (Pr(Keys.B))
-            {
-                if (summoningService.TryPurchase(definition.Id, out reason)) SaveProgression();
-                banS = reason.ToUpperInvariant(); banT = 1.8f;
-            }
-            if (Pr(Keys.Enter))
-            {
-                if (summoningService.TryEquip(definition.Id, out reason)) SaveProgression();
-                banS = reason.ToUpperInvariant(); banT = 1.5f;
-            }
-            if (Pr(Keys.U))
-            {
-                if (summoningService.TryUpgrade(definition.Id, out reason)) SaveProgression();
-                banS = reason.ToUpperInvariant(); banT = 1.5f;
-            }
-            if (Pr(Keys.G)) TrySummon(definition.Id);
-            if (Pr(Keys.X)) DismissSummon(true);
         }
 
         void UpdateSummonedCompanion(float dt)
@@ -670,6 +722,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             susanooT = shopService.GetSusanooDuration(); susanooCd = susanooT + 12f;
             Ring(P.X, P.Y - 80, 180, new Color(183, 125, 255), .8f, P.Z);
             Burst(P.X, P.Y - 80, 80, new Color(168, 102, 255), 440, 5, -40, .8f, P.Z);
+            PlayTransformation();
             banS = "SUSANOO AWAKENED"; banT = 1.8f;
         }
 
@@ -714,26 +767,286 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
 
         void HandleShopInput()
         {
-            if (Pr(Keys.Up)) selectedShopIndex = (selectedShopIndex + PremiumShopCatalog.All.Count - 1) % PremiumShopCatalog.All.Count;
-            if (Pr(Keys.Down)) selectedShopIndex = (selectedShopIndex + 1) % PremiumShopCatalog.All.Count;
-            ShopItem item = PremiumShopCatalog.All[selectedShopIndex]; string reason;
-            if (Pr(Keys.B)) { shopService.TryPurchase(item.Id, out reason); banS = reason.ToUpperInvariant(); banT = 1.4f; SaveProgression(); }
-            if (Pr(Keys.Enter)) { shopService.TryEquip(item.Id, out reason); banS = reason.ToUpperInvariant(); banT = 1.4f; SaveProgression(); }
-            if (Pr(Keys.U)) { shopService.TryUpgradeSusanoo(out reason); banS = reason.ToUpperInvariant(); banT = 1.4f; SaveProgression(); }
-            if (Pr(Keys.Tab)) shopMenuOpen = false;
+            bool mousePressed = mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released;
+            Point mouse = MenuVirtualMouse();
+            if (PrAction("MenuLeft")) { selectedShopCategory = (selectedShopCategory + 4) % 5; selectedShopIndex = 0; }
+            if (PrAction("MenuRight")) { selectedShopCategory = (selectedShopCategory + 1) % 5; selectedShopIndex = 0; }
+            for (int i = 0; i < 5; i++)
+            {
+                float x = 72 + i * 226;
+                if (mouse.X >= x && mouse.X < x + 210 && mouse.Y >= 102 && mouse.Y <= 140)
+                {
+                    if (selectedShopCategory != i) { selectedShopCategory = i; selectedShopIndex = 0; }
+                    if (mousePressed) return;
+                }
+            }
+            IReadOnlyList<ShopMenuEntry> entries = CurrentShopEntries;
+            if (entries.Count == 0) return;
+            selectedShopIndex = (selectedShopIndex + entries.Count) % entries.Count;
+            if (PrAction("MenuUp")) selectedShopIndex = (selectedShopIndex + entries.Count - 1) % entries.Count;
+            if (PrAction("MenuDown")) selectedShopIndex = (selectedShopIndex + 1) % entries.Count;
+            int first = Math.Max(0, Math.Min(entries.Count - 9, selectedShopIndex - 4));
+            for (int row = 0; row < 9; row++)
+            {
+                int index = first + row;
+                if (index >= entries.Count) break;
+                float y = 193 + row * 44;
+                if (mouse.X >= 72 && mouse.X <= 500 && mouse.Y >= y && mouse.Y <= y + 42)
+                { selectedShopIndex = index; if (mousePressed) break; }
+            }
+            ShopMenuEntry entry = entries[selectedShopIndex];
+            string reason = string.Empty;
+            bool clickBuy = mousePressed && mouse.X >= 672 && mouse.X <= 842 && mouse.Y >= 590 && mouse.Y <= 634;
+            bool clickEquip = mousePressed && mouse.X >= 850 && mouse.X <= 1020 && mouse.Y >= 590 && mouse.Y <= 634;
+            bool clickAction = mousePressed && mouse.X >= 1028 && mouse.X <= 1204 && mouse.Y >= 590 && mouse.Y <= 634;
+            bool buy = PrAction("Buy") || clickBuy;
+            bool equip = PrAction("Confirm") || clickEquip;
+            if (entry.Kind == ShopMenuEntryKind.Summon)
+            {
+                if (buy) { if (summoningService.TryPurchase(entry.Id, out reason)) SaveProgression(); ShowShopMessage(reason); }
+                if (equip)
+                {
+                    bool equipped = progression.Profile.EquippedSummonId == entry.Id;
+                    bool ok = equipped ? summoningService.TryUnequip(entry.Id, out reason) : summoningService.TryEquip(entry.Id, out reason);
+                    if (ok) SaveProgression(); ShowShopMessage(reason);
+                }
+                if (PrAction("SummonCall") || clickAction) TrySummon(entry.Id);
+            }
+            else if (entry.Kind == ShopMenuEntryKind.ShopItem)
+            {
+                if (buy) { if (shopService.TryPurchase(entry.Id, out reason)) SaveProgression(); ShowShopMessage(reason); }
+                if (equip)
+                {
+                    bool equipped = shopService.IsEquipped(entry.Id);
+                    bool ok = equipped ? shopService.TryUnequip(entry.Id, out reason) : shopService.TryEquip(entry.Id, out reason);
+                    if (ok) SaveProgression(); ShowShopMessage(reason);
+                }
+            }
+            else if (entry.Kind == ShopMenuEntryKind.StarterWeapon && equip)
+            {
+                progression.Profile.EquippedWeaponId = string.Empty; progression.Profile.EquippedItemId = string.Empty;
+                SaveProgression(); ShowShopMessage("REAPER SCYTHE EQUIPPED");
+            }
+            else if (entry.Kind == ShopMenuEntryKind.Ability && (buy || equip))
+            {
+                AbilityMenuRow row = FindAbilityRow(entry.Id);
+                ShowShopMessage(row == null || row.IsUnlocked ? "ABILITY IS READY ON ITS LISTED CONTROL" : row.RequirementText.ToUpperInvariant());
+            }
+            if (PrAction("Back") || PrAction("Shop") || PrAction("Abilities") || PrAction("Summons") || clickAction && entry.Kind != ShopMenuEntryKind.Summon)
+            {
+                if (state == "title") titlePage = "main";
+                else shopMenuOpen = false;
+            }
         }
 
         void HandleAbilityMenuInput()
         {
-            if (Pr(Keys.Up)) selectedAbilityIndex = (selectedAbilityIndex + AbilityCatalog.All.Count - 1) % AbilityCatalog.All.Count;
-            if (Pr(Keys.Down)) selectedAbilityIndex = (selectedAbilityIndex + 1) % AbilityCatalog.All.Count;
-            if (Pr(Keys.U))
+            if (PrAction("MenuUp")) selectedAbilityIndex = (selectedAbilityIndex + AbilityCatalog.All.Count - 1) % AbilityCatalog.All.Count;
+            if (PrAction("MenuDown")) selectedAbilityIndex = (selectedAbilityIndex + 1) % AbilityCatalog.All.Count;
+            if (PrAction("Upgrade"))
             {
                 string reason;
                 AbilityDefinition ability = AbilityCatalog.All[selectedAbilityIndex];
                 progression.TryUpgrade(ability.Id, out reason);
                 banS = reason.ToUpperInvariant(); banT = 1.3f; SaveProgression();
             }
+        }
+
+        AbilityMenuRow FindAbilityRow(string id)
+        {
+            foreach (AbilityMenuRow row in AbilityMenuModel.Build(progression)) if (row.Definition.Id == id) return row;
+            return null;
+        }
+
+        void ShowShopMessage(string reason)
+        {
+            banS = (reason ?? "UNAVAILABLE").ToUpperInvariant(); banT = 1.5f;
+        }
+
+        static readonly string[] RebindableActions =
+        {
+            "MoveForward", "MoveBack", "MoveLeft", "MoveRight", "Jump", "Dodge", "EyePrimary", "PowerSecondary",
+            "ModeOrKenjutsu", "HiddenJutsu", "Kunai", "SageMode", "Shop", "Abilities", "Summons", "SummonCall",
+            "SummonDismiss", "MenuUp", "MenuDown", "MenuLeft", "MenuRight", "Confirm", "Buy", "Upgrade"
+        };
+
+        static readonly string[] RebindableLabels =
+        {
+            "Move Forward", "Move Back", "Move Left", "Move Right", "Jump", "Dodge", "Eye Primary", "Power / Clone",
+            "Mode / Kenjutsu", "Hidden Jutsu", "Teleport Kunai", "Sage Mode", "Open Shop", "Ability Archive", "Summon Shop",
+            "Call Summon", "Dismiss Summon", "Menu Up", "Menu Down", "Menu Left", "Menu Right", "Confirm", "Buy / Unlock", "Upgrade"
+        };
+
+        int UpgradeEntryCount
+        {
+            get { return selectedUpgradeCategory == 0 ? AbilityCatalog.All.Count : selectedUpgradeCategory == 1 ? SummoningCatalog.All.Count : 1; }
+        }
+
+        void HandleUpgradeInput()
+        {
+            bool mousePressed = mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released;
+            Point mouse = MenuVirtualMouse();
+            if (PrAction("MenuLeft")) { selectedUpgradeCategory = (selectedUpgradeCategory + 2) % 3; selectedUpgradeIndex = 0; }
+            if (PrAction("MenuRight")) { selectedUpgradeCategory = (selectedUpgradeCategory + 1) % 3; selectedUpgradeIndex = 0; }
+            for (int i = 0; i < 3; i++)
+            {
+                float x = 86 + i * 365;
+                if (mouse.X >= x && mouse.X < x + 340 && mouse.Y >= 114 && mouse.Y <= 158)
+                { if (selectedUpgradeCategory != i) { selectedUpgradeCategory = i; selectedUpgradeIndex = 0; } }
+            }
+            selectedUpgradeIndex = (selectedUpgradeIndex + UpgradeEntryCount) % UpgradeEntryCount;
+            if (PrAction("MenuUp")) selectedUpgradeIndex = (selectedUpgradeIndex + UpgradeEntryCount - 1) % UpgradeEntryCount;
+            if (PrAction("MenuDown")) selectedUpgradeIndex = (selectedUpgradeIndex + 1) % UpgradeEntryCount;
+            int first = Math.Max(0, Math.Min(UpgradeEntryCount - 8, selectedUpgradeIndex - 4));
+            bool activate = PrAction("Upgrade") || PrAction("Confirm") || mousePressed && mouse.X >= 872 && mouse.X <= 1209 && mouse.Y >= 580 && mouse.Y <= 644;
+            for (int row = 0; row < 8; row++)
+            {
+                int index = first + row;
+                if (index >= UpgradeEntryCount) break;
+                float y = 199 + row * 45;
+                if (mouse.X >= 72 && mouse.X <= 550 && mouse.Y >= y && mouse.Y <= y + 42)
+                    selectedUpgradeIndex = index;
+            }
+            if (activate) UpgradeSelected(out string reason);
+        }
+
+        void UpgradeSelected(out string reason)
+        {
+            bool success;
+            if (selectedUpgradeCategory == 0)
+                success = progression.TryUpgrade(AbilityCatalog.All[selectedUpgradeIndex].Id, out reason);
+            else if (selectedUpgradeCategory == 1)
+                success = summoningService.TryUpgrade(SummoningCatalog.All[selectedUpgradeIndex].Id, out reason);
+            else
+                success = shopService.TryUpgradeSusanoo(out reason);
+            if (success) SaveProgression();
+            ShowShopMessage(reason);
+        }
+
+        int SettingsRowCount
+        {
+            get
+            {
+                switch (settingsSection)
+                {
+                    case 0: return 4;
+                    case 1: return 7;
+                    case 2: return RebindableActions.Length + 1;
+                    case 3: return 4;
+                    default: return 1;
+                }
+            }
+        }
+
+        void HandleSettingsInput()
+        {
+            bool mousePressed = mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released;
+            Point mouse = MenuVirtualMouse();
+            if (capturingSettingBinding)
+            {
+                foreach (Keys key in cur.GetPressedKeys())
+                {
+                    if (prev.IsKeyDown(key)) continue;
+                    if (key == Keys.Escape) { capturingSettingBinding = false; return; }
+                    bool changed = settings.TrySetBinding(capturingSettingAction, key.ToString());
+                    capturingSettingBinding = false;
+                    banS = changed ? "KEY BINDING SAVED" : "KEY IS RESERVED OR ALREADY IN USE"; banT = 1.5f;
+                    if (changed) SaveSettings();
+                    return;
+                }
+                return;
+            }
+            if (Pr(Keys.PageUp)) { settingsSection = (settingsSection + 4) % 5; settingsRow = 0; }
+            if (Pr(Keys.PageDown)) { settingsSection = (settingsSection + 1) % 5; settingsRow = 0; }
+            for (int i = 0; i < 5; i++)
+            {
+                float x = 74 + i * 226;
+                if (mouse.X >= x && mouse.X <= x + 208 && mouse.Y >= 112 && mouse.Y <= 158)
+                { if (settingsSection != i) { settingsSection = i; settingsRow = 0; } }
+            }
+            settingsRow = Math.Max(0, Math.Min(SettingsRowCount - 1, settingsRow));
+            if (PrAction("MenuUp")) settingsRow = (settingsRow + SettingsRowCount - 1) % SettingsRowCount;
+            if (PrAction("MenuDown")) settingsRow = (settingsRow + 1) % SettingsRowCount;
+            int visible = 8;
+            int first = Math.Max(0, Math.Min(SettingsRowCount - visible, settingsRow - visible / 2));
+            for (int row = 0; row < visible; row++)
+            {
+                int index = first + row;
+                if (index >= SettingsRowCount) break;
+                float y = 200 + row * 48;
+                if (mouse.X >= 78 && mouse.X <= 1198 && mouse.Y >= y && mouse.Y <= y + 42)
+                {
+                    settingsRow = index;
+                    if (mousePressed)
+                    {
+                        if (settingsSection == 2 && index < RebindableActions.Length) StartBindingCapture(index);
+                        else if (settingsSection == 2) { settings.RestoreDefaults(); SaveSettings(); }
+                        else if (settingsSection == 0 && index < 3 && mouse.X >= 680 && mouse.X <= 955)
+                        {
+                            float value = Cl((mouse.X - 680) / 275f, 0, 1);
+                            if (index == 0) settings.MasterVolume = value;
+                            else if (index == 1) settings.MusicVolume = value;
+                            else settings.EffectsVolume = value;
+                            ApplyAudioVolumes(); SaveSettings();
+                        }
+                        else if (settingsSection == 0 && index == 3 || settingsSection != 0 && mouse.X >= 625) AdjustSettings(1);
+                        return;
+                    }
+                }
+            }
+            if (settingsSection == 2 && mousePressed && mouse.X >= 1004 && mouse.X <= 1196 && mouse.Y >= 626 && mouse.Y <= 670)
+            { settings.RestoreDefaults(); SaveSettings(); banS = "DEFAULT KEY BINDS RESTORED"; banT = 1.6f; return; }
+            if (settingsSection != 2 && mousePressed && mouse.X >= 1004 && mouse.X <= 1196 && mouse.Y >= 626 && mouse.Y <= 670)
+            { titlePage = "main"; return; }
+            if (settingsSection == 2 && settingsRow == RebindableActions.Length && PrAction("Confirm"))
+            { settings.RestoreDefaults(); SaveSettings(); banS = "DEFAULT KEY BINDS RESTORED"; banT = 1.6f; return; }
+            if (settingsSection == 2 && settingsRow < RebindableActions.Length && PrAction("Confirm")) { StartBindingCapture(settingsRow); return; }
+            if (PrAction("MenuLeft")) AdjustSettings(-1);
+            if (PrAction("MenuRight")) AdjustSettings(1);
+            if (PrAction("Confirm")) AdjustSettings(1);
+        }
+
+        void StartBindingCapture(int index)
+        {
+            if (index < 0 || index >= RebindableActions.Length) return;
+            capturingSettingAction = RebindableActions[index];
+            capturingSettingBinding = true;
+        }
+
+        void AdjustSettings(int direction)
+        {
+            bool applyVideo = false;
+            bool audioChanged = false;
+            if (settingsSection == 0)
+            {
+                if (settingsRow == 0) settings.MasterVolume = Cl(settings.MasterVolume + direction * .05f, 0, 1);
+                else if (settingsRow == 1) settings.MusicVolume = Cl(settings.MusicVolume + direction * .05f, 0, 1);
+                else if (settingsRow == 2) settings.EffectsVolume = Cl(settings.EffectsVolume + direction * .05f, 0, 1);
+                else settings.Muted = !settings.Muted;
+                audioChanged = true;
+            }
+            else if (settingsSection == 1)
+            {
+                if (settingsRow == 0) settings.ShowHud = !settings.ShowHud;
+                else if (settingsRow == 1) settings.ShowVitals = !settings.ShowVitals;
+                else if (settingsRow == 2) settings.ShowWallet = !settings.ShowWallet;
+                else if (settingsRow == 3) settings.ShowHints = !settings.ShowHints;
+                else if (settingsRow == 4) settings.HudScale = Cl(settings.HudScale + direction * .05f, .65f, 1.4f);
+                else if (settingsRow == 5) settings.HudOffsetX = Math.Max(-180, Math.Min(180, settings.HudOffsetX + direction * 10));
+                else settings.HudOffsetY = Math.Max(-120, Math.Min(120, settings.HudOffsetY + direction * 10));
+            }
+            else if (settingsSection == 3)
+            {
+                if (settingsRow == 0) settings.ResolutionIndex = (settings.ResolutionIndex + direction + ResolutionWidths.Length) % ResolutionWidths.Length;
+                else if (settingsRow == 1) settings.Fullscreen = !settings.Fullscreen;
+                else if (settingsRow == 2) settings.VSync = !settings.VSync;
+                else settings.GraphicsQuality = (settings.GraphicsQuality + direction + QualityScales.Length) % QualityScales.Length;
+                applyVideo = true;
+            }
+            else if (settingsSection == 4) settings.CameraSensitivity = Cl(settings.CameraSensitivity + direction * .1f, .25f, 2.5f);
+            if (audioChanged) ApplyAudioVolumes();
+            if (applyVideo) ApplyVideoSettings();
+            SaveSettings();
         }
 
         void LoadLevel(int n, float sx, float sz = 110)
@@ -764,9 +1077,17 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         void OpenMissionSelect()
         {
             levelSelectOpen = true;
+            titlePage = "maps";
             selectedMenuLevel = Math.Max(0, Math.Min(progression.Profile.UnlockedLevel, LevelGen.Themes.Length - 1));
             PreviewMenuLevel(selectedMenuLevel);
         }
+
+        bool HasContinueSave
+        {
+            get { return progression != null && !progression.Profile.IsReadOnlyRecovery && !string.IsNullOrWhiteSpace(ActiveProfilePath) && File.Exists(ActiveProfilePath); }
+        }
+
+        int MainMenuOptionCount { get { return HasContinueSave ? 6 : 5; } }
 
         void QueueMenuLevel(int level)
         {
@@ -775,35 +1096,43 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 banS = "MISSION LOCKED — DEFEAT THE PREVIOUS BOSS"; banT = 1.8f;
                 return;
             }
-            queuedMenuLevel = level; launchDelay = .35f; levelSelectOpen = false; state = "launch";
+            queuedMenuLevel = level; launchDelay = .35f; levelSelectOpen = false; titlePage = "main"; state = "launch";
         }
 
         void ActivateMainMenuItem(int item)
         {
-            switch (item)
+            int action = item;
+            if (HasContinueSave)
             {
-                case 0: QueueMenuLevel(Math.Max(0, Math.Min(lv, LevelGen.Themes.Length - 1))); break;
-                case 1: OpenMissionSelect(); break;
-                case 2:
-                    ResetNormalProgression(); lv = 0; LoadLevel(0, 250); state = "title";
-                    mainMenuIndex = 0; banS = "NEW CAMPAIGN READY"; banT = 1.6f;
-                    break;
-                default: Exit(); break;
+                if (action == 0) { QueueMenuLevel(Math.Max(0, Math.Min(progression.Profile.UnlockedLevel, LevelGen.Themes.Length - 1))); return; }
+                action--;
             }
+            switch (action)
+            {
+                case 0: OpenMissionSelect(); break;
+                case 1: titlePage = "shop"; selectedShopCategory = 0; selectedShopIndex = 0; break;
+                case 2: titlePage = "upgrade"; selectedUpgradeIndex = 0; break;
+                case 3: titlePage = "settings"; settingsSection = 0; settingsRow = 0; capturingSettingBinding = false; break;
+                case 4: Exit(); break;
+                default: OpenMissionSelect(); break;
+            }
+        }
+
+        void BeginNewCampaign()
+        {
+            ResetNormalProgression(); lv = 0; LoadLevel(0, 250); state = "title"; titlePage = "main"; levelSelectOpen = false;
+            mainMenuIndex = HasContinueSave ? 1 : 0; banS = "NEW CAMPAIGN READY"; banT = 1.6f;
         }
 
         void HandleTitleMenuInput()
         {
             bool mousePressed = mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released;
-            float scale = Math.Min(Window.ClientBounds.Width / (float)W, Window.ClientBounds.Height / (float)H);
-            float offsetX = (Window.ClientBounds.Width - W * scale) * .5f;
-            float offsetY = (Window.ClientBounds.Height - H * scale) * .5f;
-            float mouseX = scale > 0 ? (mouseCur.X - offsetX) / scale : -1;
-            float mouseY = scale > 0 ? (mouseCur.Y - offsetY) / scale : -1;
-            if (levelSelectOpen)
+            Point mouse = MenuVirtualMouse();
+            float mouseX = mouse.X, mouseY = mouse.Y;
+            if (levelSelectOpen || titlePage == "maps")
             {
-                if (Pr(Keys.Left) || Pr(Keys.A)) { selectedMenuLevel = (selectedMenuLevel + LevelGen.Themes.Length - 1) % LevelGen.Themes.Length; PreviewMenuLevel(selectedMenuLevel); }
-                if (Pr(Keys.Right) || Pr(Keys.D)) { selectedMenuLevel = (selectedMenuLevel + 1) % LevelGen.Themes.Length; PreviewMenuLevel(selectedMenuLevel); }
+                if (PrAction("MenuLeft")) { selectedMenuLevel = (selectedMenuLevel + LevelGen.Themes.Length - 1) % LevelGen.Themes.Length; PreviewMenuLevel(selectedMenuLevel); }
+                if (PrAction("MenuRight")) { selectedMenuLevel = (selectedMenuLevel + 1) % LevelGen.Themes.Length; PreviewMenuLevel(selectedMenuLevel); }
                 for (int i = 0; i < LevelGen.Themes.Length; i++)
                 {
                     float x = 70 + i * 388;
@@ -812,25 +1141,32 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                         if (selectedMenuLevel != i) { selectedMenuLevel = i; PreviewMenuLevel(i); }
                     }
                 }
-                if (Pr(Keys.Enter) || mousePressed && mouseX >= 885 && mouseY >= 572 && mouseX <= 1210 && mouseY <= 650)
+                if (PrAction("Confirm") || mousePressed && mouseX >= 885 && mouseY >= 572 && mouseX <= 1210 && mouseY <= 650)
                     QueueMenuLevel(selectedMenuLevel);
                 if (mousePressed && mouseX >= 64 && mouseY >= 572 && mouseX <= 280 && mouseY <= 650)
-                { levelSelectOpen = false; PreviewMenuLevel(lv); }
+                { levelSelectOpen = false; titlePage = "main"; PreviewMenuLevel(lv); }
+                if (mousePressed && mouseX >= 435 && mouseY >= 572 && mouseX <= 770 && mouseY <= 650) BeginNewCampaign();
+                if (Pr(Keys.N)) BeginNewCampaign();
                 return;
             }
 
-            if (Pr(Keys.Up) || Pr(Keys.W)) mainMenuIndex = (mainMenuIndex + 3) % 4;
-            if (Pr(Keys.Down) || Pr(Keys.S)) mainMenuIndex = (mainMenuIndex + 1) % 4;
-            for (int i = 0; i < 4; i++)
+            if (titlePage == "shop") { HandleShopInput(); return; }
+            if (titlePage == "upgrade") { HandleUpgradeInput(); return; }
+            if (titlePage == "settings") { HandleSettingsInput(); return; }
+
+            mainMenuIndex = Math.Max(0, Math.Min(mainMenuIndex, MainMenuOptionCount - 1));
+            if (PrAction("MenuUp")) mainMenuIndex = (mainMenuIndex + MainMenuOptionCount - 1) % MainMenuOptionCount;
+            if (PrAction("MenuDown")) mainMenuIndex = (mainMenuIndex + 1) % MainMenuOptionCount;
+            for (int i = 0; i < MainMenuOptionCount; i++)
             {
-                float y = 330 + i * 65;
-                if (mouseX >= 76 && mouseX <= 572 && mouseY >= y && mouseY <= y + 52)
+                float y = 315 + i * 53;
+                if (mouseX >= 76 && mouseX <= 572 && mouseY >= y && mouseY <= y + 46)
                 {
                     mainMenuIndex = i;
                     if (mousePressed) { ActivateMainMenuItem(i); return; }
                 }
             }
-            if (Pr(Keys.Enter) || Pr(Keys.Space)) ActivateMainMenuItem(mainMenuIndex);
+            if (PrAction("Confirm") || Pr(Keys.Space)) ActivateMainMenuItem(mainMenuIndex);
         }
 
         // ---------- world queries ----------
@@ -898,7 +1234,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             Color slashColor = weapon == "lightning" ? new Color(180, 230, 255) : weapon.Length > 0 ? CY : P.Cb == 2 ? VI : CY;
             Arc(P.X, P.Y - 70, P.F, r * (P.Cb == 2 ? 1.1f : .9f), slashColor, .25f, new[] { -.35f, .35f, 0f }[P.Cb], P.Z);
             if (P.Cb == 2) { Ring(P.X, P.Y - 60, 190, slashColor, .4f, P.Z); Burst(P.X + P.F * 90, P.Y - 70, 28, slashColor, 520, 4, 600, .6f, P.Z); }
-            Sfx(P.Cb == 2 ? "slash3" : "slash", P.X);
+            PlayScytheAttack(P.X);
             foreach (var e in en) if (DistXZ(e.X, e.Z, P.X, P.Z) < r + 20 * e.S && Math.Abs(e.Y - P.Y) < 160) HitE(e, dm * (1 + lv * .05f), P.F * (P.Cb == 2 ? 700 : 380));
             foreach (var p in proj) if (!p.Own && p.K != "pillar" && DistXZ(p.X, p.Z, P.X, P.Z) < r && Math.Abs(p.Y - (P.Y - 70)) < 120) { p.L = 0; P.En = Math.Min(100, P.En + 6); Burst(p.X, p.Y, 14, CY, 300, 3, 600, .6f, p.Z); }
         }
@@ -1013,26 +1349,25 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             if (banT > 0) banT -= dt;
             if (abilityMenuOpen) HandleAbilityMenuInput();
-            if (shopMenuOpen) HandleShopInput();
-            else if (summoningMenuOpen) HandleSummoningMenuInput();
+            if (shopMenuOpen || summoningMenuOpen) HandleShopInput();
             else if (!P.Dead)
             {
-                if (Pr(Keys.G)) SummonEquipped();
-                if (Pr(Keys.X)) DismissSummon(true);
+                if (PrAction("SummonCall")) SummonEquipped();
+                if (PrAction("SummonDismiss")) DismissSummon(true);
             }
             eyeCooldown = Math.Max(0, eyeCooldown - dt); pushCooldown = Math.Max(0, pushCooldown - dt);
             genjutsuCooldown = Math.Max(0, genjutsuCooldown - dt); susanooCd = Math.Max(0, susanooCd - dt);
             sageCd = Math.Max(0, sageCd - dt); if (susanooT > 0) susanooT = Math.Max(0, susanooT - dt);
             shurikenCd = Math.Max(0, shurikenCd - dt); kenjutsuCd = Math.Max(0, kenjutsuCd - dt);
             hiddenCd = Math.Max(0, hiddenCd - dt); kunaiCd = Math.Max(0, kunaiCd - dt); hiddenT = Math.Max(0, hiddenT - dt);
-            if (!shopMenuOpen && !summoningMenuOpen && !P.Dead)
+            if (!shopMenuOpen && !summoningMenuOpen && !abilityMenuOpen && !P.Dead)
             {
-                if (Pr(Keys.Q)) UseEyeQ();
-                if (Pr(Keys.E)) UseEyeE();
-                if (Pr(Keys.F)) UseEyeF();
-                if (Pr(Keys.C)) ActivateHiddenJutsu();
-                if (Pr(Keys.R)) UseTeleportationKunai();
-                if (Pr(Keys.Z))
+                if (PrAction("EyePrimary")) UseEyeQ();
+                if (PrAction("PowerSecondary")) UseEyeE();
+                if (PrAction("ModeOrKenjutsu")) UseEyeF();
+                if (PrAction("HiddenJutsu")) ActivateHiddenJutsu();
+                if (PrAction("Kunai")) UseTeleportationKunai();
+                if (PrAction("SageMode"))
                 {
                     string sage = progression.Profile.EquippedSageModeId;
                     if (sage != "sage.toad" && sage != "sage.snake" && sage != "sage.sixpaths") { banS = "EQUIP A SAGE MODE IN THE SHOP"; banT = 1f; }
@@ -1041,7 +1376,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             }
             float worldDt = dt;
             if (freezeT > 0) { worldDt = Math.Max(0, dt - freezeT); freezeT = Math.Max(0, freezeT - dt); }
-            float side = (Dn(Keys.D) ? 1 : 0) - (Dn(Keys.A) ? 1 : 0), forward = (Dn(Keys.W) ? 1 : 0) - (Dn(Keys.S) ? 1 : 0);
+            float side = (DnAction("MoveRight") ? 1 : 0) - (DnAction("MoveLeft") ? 1 : 0), forward = (DnAction("MoveForward") ? 1 : 0) - (DnAction("MoveBack") ? 1 : 0);
             float fwdX = -MathF.Sin(camYaw), fz = -MathF.Cos(camYaw), rx = MathF.Cos(camYaw), rz = -MathF.Sin(camYaw);
             float mx = rx * side + fwdX * forward, mz = rz * side + fz * forward, ml = MathF.Sqrt(mx * mx + mz * mz);
             if (ml > 1) { mx /= ml; mz /= ml; }
@@ -1054,7 +1389,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 scoutZ = Cl(scoutZ + forward * 620 * dt, -260, 480);
                 cam = Cl(scoutX - W * .5f, 0, Math.Max(0, L.GateX + 400 - W)); camZ = scoutZ; camY = 0;
             }
-            if (!P.Dead && !summoningMenuOpen && !shopMenuOpen && !byakuganScout)
+            if (!P.Dead && !summoningMenuOpen && !shopMenuOpen && !abilityMenuOpen && !byakuganScout)
             {
                 P.Inv -= dt; P.Dcd -= dt; P.Kcd -= dt; P.CloneCd -= dt; P.CbT -= dt; bool was = P.Ground; float pvy = P.Vy;
                 if (P.Dash > 0) { P.Dash -= dt; P.X += MathF.Cos(P.Yaw) * 1200 * dt; P.Z += MathF.Sin(P.Yaw) * 1200 * dt; P.Vy = 0; fx.Add(new Fx { K = "ghost", X = P.X, Y = P.Y, Z = P.Z, F = P.F, L = .3f, M = .3f, C = PU }); }
@@ -1064,7 +1399,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                     P.Vx += (mx * 420 * sl - P.Vx) * accel; P.Vz += (mz * 420 * sl - P.Vz) * accel;
                     if (ml > .1f && P.Atk <= 0) { P.Yaw = MathF.Atan2(mz, mx); if (Math.Abs(mx) > .15f) P.F = mx > 0 ? 1 : -1; }
                     if (P.Ground) P.Coy = .1f; else { P.Coy -= dt; if (P.Coy <= 0 && P.J == 0) P.J = 1; }
-                    if (Pr(Keys.Space) && P.J < 2) { P.Vy = -850; P.J++; P.Ground = false; Burst(P.X, P.Y, 14, PU, 240, 3, 300, .4f, P.Z); Sfx("jump", P.X); }
+                    if (PrAction("Jump") && P.J < 2) { P.Vy = -850; P.J++; P.Ground = false; Burst(P.X, P.Y, 14, PU, 240, 3, 300, .4f, P.Z); Sfx("jump", P.X); }
                     float prevY = P.Y; P.Vy += 2300 * dt; P.X += P.Vx * dt; P.Z += P.Vz * dt; P.Y += P.Vy * dt; P.Ground = false;
                     if (P.Vy >= 0)
                     {
@@ -1087,7 +1422,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                         break;
                     }
                 if ((P.Run || P.Dash > 0 || P.Atk > 0) && rnd.NextDouble() < .6) pt.Add(new Part { X = P.X - MathF.Cos(P.Yaw) * Rf(10, 34), Y = P.Y - Rf(0, 50), Z = P.Z - MathF.Sin(P.Yaw) * Rf(10, 34), Vx = Rf(-20, 20), Vy = Rf(-70, -15), L = .8f, M = .8f, Sz = 12, C = new Color(10, 5, 18), G = -30, Dk = true });
-                if ((Pr(Keys.LeftShift) || Pr(Keys.RightShift)) && P.Dcd <= 0) { P.Dash = .17f; P.Dcd = .65f; P.Inv = Math.Max(P.Inv, .3f); Burst(P.X, P.Y - 60, 22, PU, 300, 4, 600, .6f, P.Z); Sfx("dash", P.X); }
+                if (PrAction("Dodge") && P.Dcd <= 0) { P.Dash = .17f; P.Dcd = .65f; P.Inv = Math.Max(P.Inv, .3f); Burst(P.X, P.Y - 60, 22, PU, 300, 4, 600, .6f, P.Z); Sfx("dash", P.X); }
                 if (P.Atk > 0)
                 {
                     float dur = P.Cb == 2 ? .42f : .28f; P.AtkT += dt; P.Atk -= dt; float atp = P.AtkT / dur;
@@ -1117,7 +1452,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                     { banS = "NEED " + rasengan.ResourceCost + " SOUL ENERGY"; banT = 1.1f; }
                 }
                 bool ePowerEquipped = HasEye("byakugan") || HasEye("jougan") || HasEye("mangekyo") || HasEye("ems");
-                if (Pr(Keys.E) && !ePowerEquipped)
+                if (PrAction("PowerSecondary") && !ePowerEquipped)
                 {
                     AbilityDefinition clone = AbilityCatalog.Get("clone");
                     if (!progression.IsUsable(clone.Id))
@@ -1241,24 +1576,30 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             prev = cur; cur = Keyboard.GetState(); mousePrev = mouseCur; mouseCur = Mouse.GetState(); float dt = Math.Min(.033f, (float)gt.ElapsedGameTime.TotalSeconds); t += dt;
             bool enteredPlayThisFrame = false;
-            if (Pr(Keys.Escape))
+            if (PrAction("Back"))
             {
-                if (state == "title" && levelSelectOpen) { levelSelectOpen = false; PreviewMenuLevel(lv); }
+                if (capturingSettingBinding) { capturingSettingBinding = false; banS = "KEY BINDING CANCELLED"; banT = 1.2f; }
+                else if (state == "title" && (levelSelectOpen || titlePage != "main"))
+                {
+                    levelSelectOpen = false; titlePage = "main"; PreviewMenuLevel(lv);
+                }
+                else if (state == "play" && (abilityMenuOpen || shopMenuOpen || summoningMenuOpen))
+                { abilityMenuOpen = shopMenuOpen = summoningMenuOpen = false; }
                 else Exit();
             }
-            if (Pr(Keys.F11)) gdm.ToggleFullScreen();
-            if (Pr(Keys.F6)) { renderScale = renderScale >= 1.49f ? 1 : renderScale + .25f; CreateRenderTargets(); banS = "RENDER QUALITY  " + (int)(renderScale * 100) + "%"; banT = 1.5f; }
-            if (Pr(Keys.F7)) { camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880; camMouseIdle = 0; banS = "CAMERA RESET"; banT = 1.2f; }
+            if (!capturingSettingBinding && Pr(Keys.F11)) { settings.Fullscreen = !settings.Fullscreen; ApplyVideoSettings(); SaveSettings(); }
+            if (!capturingSettingBinding && Pr(Keys.F6)) { settings.GraphicsQuality = (settings.GraphicsQuality + 1) % QualityScales.Length; ApplyVideoSettings(); SaveSettings(); banS = "RENDER QUALITY  " + (int)(renderScale * 100) + "%"; banT = 1.5f; }
+            if (!capturingSettingBinding && Pr(Keys.F7)) { camYaw = -MathHelper.PiOver2; camPitch = .19f; camDistance = 880; camMouseIdle = 0; banS = "CAMERA RESET"; banT = 1.2f; }
 #if DEBUG
-            if (Pr(Keys.F9)) SetTestMode(!testMode);
+            if (!capturingSettingBinding && Pr(Keys.F9)) SetTestMode(!testMode);
 #endif
-            if (state == "play" && Pr(Keys.P))
+            if (state == "play" && PrAction("Shop"))
             {
                 shopMenuOpen = !shopMenuOpen; abilityMenuOpen = false; summoningMenuOpen = false;
                 if (shopMenuOpen) selectedShopIndex = Math.Max(0, selectedShopIndex);
             }
-            if (state == "play" && Pr(Keys.Tab)) { abilityMenuOpen = !abilityMenuOpen; shopMenuOpen = false; summoningMenuOpen = false; }
-            if (state == "play" && Pr(Keys.M))
+            if (state == "play" && PrAction("Abilities")) { abilityMenuOpen = !abilityMenuOpen; shopMenuOpen = false; summoningMenuOpen = false; }
+            if (state == "play" && PrAction("Summons"))
             {
                 summoningMenuOpen = !summoningMenuOpen;
                 shopMenuOpen = false; abilityMenuOpen = false;
@@ -1267,10 +1608,10 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                     int equippedIndex = 0;
                     for (int i = 0; i < SummoningCatalog.All.Count; i++)
                         if (SummoningCatalog.All[i].Id == progression.Profile.EquippedSummonId) { equippedIndex = i; break; }
-                    selectedSummonIndex = equippedIndex;
+                    selectedShopCategory = (int)ShopCategory.Summons;
+                    selectedShopIndex = equippedIndex;
                 }
             }
-            if (state == "play" && Pr(Keys.Tab)) summoningMenuOpen = false;
             if (state == "title")
             {
                 HandleTitleMenuInput();
@@ -1280,11 +1621,11 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 launchDelay -= dt;
                 if (launchDelay <= 0) { LoadLevel(queuedMenuLevel, 250); state = "play"; enteredPlayThisFrame = true; }
             }
-            else if (state == "dead") { if (Pr(Keys.Enter)) { LoadLevel(lv, checkX, checkZ); state = "play"; enteredPlayThisFrame = true; } }
+            else if (state == "dead") { if (PrAction("Confirm")) { LoadLevel(lv, checkX, checkZ); state = "play"; enteredPlayThisFrame = true; } }
             else if (state == "win")
             {
                 winT += dt;
-                if (Pr(Keys.Enter) && winT > 1)
+                if (PrAction("Confirm") && winT > 1)
                 {
                     if (lv >= 2)
                     {
@@ -1296,8 +1637,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                     }
                 }
             }
-            else if (state == "end") { if (Pr(Keys.Enter)) { LoadLevel(0, 250); state = "title"; } }
+            else if (state == "end") { if (PrAction("Confirm")) { LoadLevel(0, 250); state = "title"; titlePage = "main"; } }
             if (state == "play" && !enteredPlayThisFrame) { if (hitstop > 0) { hitstop -= dt; dt *= .1f; } UpdatePlay(dt); }
+            UpdateMenuMusic();
             UpdFx(dt); base.Update(gt);
         }
     }

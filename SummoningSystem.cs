@@ -256,6 +256,15 @@ namespace Kadaya
             return true;
         }
 
+        public bool TryUnequip(string id, out string reason)
+        {
+            if (!IsOwned(id)) { reason = "Unlock this summon first."; return false; }
+            if (Profile.EquippedSummonId != id) { reason = "Summon is not equipped."; return false; }
+            Profile.EquippedSummonId = string.Empty;
+            reason = "Summon unequipped.";
+            return true;
+        }
+
         public bool TryUpgrade(string id, out string reason)
         {
             SummoningDefinition definition = SummoningCatalog.Get(id);

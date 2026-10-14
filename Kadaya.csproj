@@ -5,6 +5,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Kadaya</AssemblyName>
+    <ApplicationIcon>Content\UI\kadaya_icon.ico</ApplicationIcon>
     <RootNamespace>Kadaya</RootNamespace>
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>

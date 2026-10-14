@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Media;
 
 namespace Kadaya
 {
@@ -31,6 +32,9 @@ namespace Kadaya
         };
         Dictionary<string, SoundEffect> sfxc = new Dictionary<string, SoundEffect>();
         SoundEffect[] songs = new SoundEffect[3]; SoundEffectInstance musInst;
+        Song menuMusicSong, transformationSong;
+        SoundEffect scytheAttackSound;
+        bool menuMusicActive, transformationSongActive;
 
         static byte[] Pcm(float[] m)
         {
@@ -84,9 +88,67 @@ namespace Kadaya
             {
                 if (!sfxc.TryGetValue(k, out var se)) { se = k == "jump" || k == "dash" || k == "land" ? SynAction(k) : Syn(SP[k]); sfxc[k] = se; }
                 float pan = float.IsNaN(x) ? 0 : Cl((x - (cam + W / 2f)) / 700f, -1, 1);
-                se.Play(Cl(v * .75f, 0, 1), Rf(-.12f, .12f), pan);
+                float master = settings == null || settings.Muted ? 0 : settings.MasterVolume * settings.EffectsVolume;
+                se.Play(Cl(v * .75f * master, 0, 1), Rf(-.12f, .12f), pan);
             }
             catch { }
+        }
+
+        void PlayScytheAttack(float x)
+        {
+            try
+            {
+                if (scytheAttackSound == null) { Sfx("slash", x); return; }
+                float master = settings == null || settings.Muted ? 0 : settings.MasterVolume * settings.EffectsVolume;
+                float pan = Cl((x - (cam + W / 2f)) / 700f, -1, 1);
+                scytheAttackSound.Play(Cl(.75f * master, 0, 1), 0, pan);
+            }
+            catch { Sfx("slash", x); }
+        }
+
+        void PlayTransformation()
+        {
+            try
+            {
+                if (transformationSong == null) { Sfx("ult", P.X); return; }
+                if (MediaPlayer.State != MediaState.Stopped) MediaPlayer.Stop();
+                MediaPlayer.IsRepeating = false;
+                transformationSongActive = true;
+                ApplySfxVolumes();
+                MediaPlayer.Play(transformationSong);
+            }
+            catch { transformationSongActive = false; Sfx("ult", P.X); }
+        }
+
+        void UpdateMenuMusic()
+        {
+            if (menuMusicSong == null) return;
+            if (state == "title")
+            {
+                if (!menuMusicActive || MediaPlayer.State == MediaState.Stopped)
+                {
+                    try
+                    {
+                        if (musInst != null) { musInst.Stop(); musInst.Dispose(); musInst = null; }
+                        if (MediaPlayer.State != MediaState.Stopped) MediaPlayer.Stop();
+                        transformationSongActive = false;
+                        MediaPlayer.IsRepeating = true;
+                        ApplyAudioVolumes();
+                        MediaPlayer.Play(menuMusicSong);
+                        menuMusicActive = true;
+                    }
+                    catch { menuMusicActive = false; }
+                }
+            }
+            else if (menuMusicActive)
+            {
+                try { if (MediaPlayer.State != MediaState.Stopped) MediaPlayer.Stop(); } catch { }
+                menuMusicActive = false;
+                transformationSongActive = false;
+                MediaPlayer.IsRepeating = false;
+            }
+            if (!menuMusicActive && transformationSongActive && MediaPlayer.State == MediaState.Stopped)
+            { transformationSongActive = false; ApplyAudioVolumes(); }
         }
 
         void PlaySong(int th)
@@ -95,7 +157,10 @@ namespace Kadaya
             {
                 if (musInst != null) { musInst.Stop(); musInst.Dispose(); musInst = null; }
                 if (songs[th] == null) songs[th] = MakeSong(th);
-                musInst = songs[th].CreateInstance(); musInst.IsLooped = true; musInst.Volume = .6f; musInst.Play();
+                musInst = songs[th].CreateInstance(); musInst.IsLooped = true;
+                float master = settings == null || settings.Muted ? 0 : settings.MasterVolume;
+                musInst.Volume = Cl(master * (settings == null ? .7f : settings.MusicVolume), 0, 1);
+                musInst.Play();
             }
             catch { }
         }

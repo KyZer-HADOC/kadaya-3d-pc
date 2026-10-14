@@ -9,6 +9,7 @@ OutputBaseFilename=setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=Content\UI\kadaya_icon.ico
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=KADAYA
 

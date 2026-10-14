@@ -1,83 +1,138 @@
-# KADAYA (3D)
+# KADAYA: THE LAST SHADOW
 
-3D dark ninja action platformer (MonoGame / C#). You are The Grim Reaper.
-Perspective 3D camera, lit + fogged scenery built from primitive shapes, bosses, checkpoints.
-Run left to right through each level, cross pits, dodge spikes, cut down ninja / samurai / archers,
-defeat the boss, step through the Soul Gate. Die and you restart from the last shrine of the SAME level (saved).
+An offline 3D dark-fantasy ninja action game built with C# and MonoGame. Run left to right through three handcrafted procedural realms, cross platforming hazards, defeat enemies and bosses, use checkpoints, and unlock further missions. The existing third-person camera, combat, enemy AI, summon behavior, progression profile, and campaign remain part of the game.
 
-## Camera and quality
-Move the mouse to orbit the 3D camera. After a short pause, it gently recenters behind your movement. Use the mouse wheel to zoom.
-Press F7 to reset the camera, or F6 to cycle render quality from 100% to 125% and 150%.
+## Run and Windows installer
 
-## Run
-1. Install the .NET 8 SDK: https://dotnet.microsoft.com/download
-2. In this folder: `dotnet run`
+Install the .NET 8 SDK and run `dotnet run` from the repository root.
 
-## Windows installer
-Every push to `main` builds `setup.exe` with GitHub Actions. Download it from the latest successful `Build KADAYA setup.exe` run under **Actions > Artifacts > KADAYA-setup**.
+Every push to `main` runs the Windows build and test workflow. A successful run publishes a self-contained `win-x64` build, checks the compiled audio content, and packages `output/setup.exe`. Download the `KADAYA-setup` artifact from the latest successful Actions run.
 
-## Controls
-W/A/S/D move in the camera direction | Space jump (x2) | Shift dodge | Mouse wheel zoom
-LMB melee combo | E eye power / Shadow Clone | RMB Rasengan | Q eye power / Shuriken
-F eye mode / Kenjutsu | C Hidden Jutsu | R Teleportation Kunai | Z Sage Mode
-Tab ability archive | P Premium Shop | M Premium Summon Vault | F6 quality | F7 camera reset
-In either shop: Up/Down select | B buy | Enter equip | U upgrade | G summon | X dismiss
-Title menu: Up/Down + Enter, or click | Mission select: Left/Right + Enter, or click a map | Esc back/quit
-In the title menu, Continue enters your saved frontier, Mission Select previews unlocked maps, and New Campaign resets story progress while keeping shop purchases. F11 fullscreen.
+## Main menu and missions
 
-## Ability progression
-The Scythe is the starting melee weapon and keeps its existing combo. Abilities unlock from enemy defeats and boss-gate completions:
+The main menu offers **Continue** when the active profile is readable, plus **Start**, **Shop**, **Upgrade**, **Settings**, and **Exit**. Start opens the map and mission selector. Blood Moon Forest is available at the beginning; defeating a mission boss opens the next mission. The map selector previews all three realms and can start a new campaign while preserving permanent shop ownership, currencies, and upgrades.
 
-| Ability | Requirement |
+The main menu keeps the existing 3D Reaper and realm scene running behind its interface. The three available environments are Blood Moon Forest, Haunted Graveyard, and Burning Temple. The game uses generated geometry, materials, fog, lighting, and effects rather than authored map-art assets.
+
+## Default controls
+
+| Action | Default |
 | --- | --- |
-| Scythe Combo | Available from the start |
-| Shuriken Jutsu | 3 total enemy defeats |
-| Kenjutsu | Shuriken Jutsu and 8 total enemy defeats |
-| Hidden Jutsu | Kenjutsu and completion of mission 1 |
-| Shadow Clone | Hidden Jutsu and 6 enemy defeats after mission 1 |
-| Teleportation Kunai | Shadow Clone and completion of mission 2 |
-| Rasengan | Teleportation Kunai and 5 enemy defeats after mission 2 |
+| Move | W / A / S / D |
+| Jump / dodge | Space / Left Shift |
+| Camera orbit / zoom | Mouse / wheel |
+| Scythe melee combo / Rasengan | Left mouse / right mouse |
+| Eye primary / secondary | Q / E |
+| Eye mode or Kenjutsu | F |
+| Hidden Jutsu / Teleportation Kunai / Sage Mode | C / R / Z |
+| Shop / Summon category / ability archive | P / M / Tab |
+| Call / dismiss summon | G / X |
+| Menu navigation | Arrow keys, Enter, mouse |
+| Buy / upgrade | B / U |
+| Graphics quality / camera reset / fullscreen | F6 / F7 / F11 |
 
-Shuriken, Kenjutsu, Hidden Jutsu, and Teleportation Kunai have working combat actions. Shadow Clone creates one copy for 5 seconds, costs 40 soul energy, and has a 12-second cooldown. Rasengan costs 35 soul energy and has a 1.1-second cooldown. The `Tab` archive shows requirements, costs, cooldowns, and upgrade levels; `U` upgrades the selected unlocked ability with Shards.
+Settings can rebind the listed keyboard actions. Mouse buttons remain the melee and Rasengan controls. Settings navigation uses Page Up/Page Down for sections, arrows to change a selected setting, Enter to toggle or capture a key, and Escape to go back. Escape exits from the main menu.
 
-## Saves and development Test Mode
-Normal progression is stored in `%AppData%\Kadaya\save.json`. The old `%AppData%\Kadaya\save.txt` level value is migrated the first time the JSON profile is created; migration leaves `save.txt` untouched. Start a fresh story from **New Campaign** on the title menu; permanent shop purchases, wallet balances, and upgrades stay owned.
+## Abilities and progression
 
-The title menu keeps the 3D realm running behind it. Mission Select previews the Blood Moon Forest, Haunted Graveyard, and Burning Temple; later missions unlock when you defeat the previous mission's boss. Continue launches the most recently unlocked mission.
+All seven core ability entries are connected to combat and the existing profile progression:
 
-If an existing JSON profile cannot be read, the game preserves that file and blocks writes to the recovered in-memory defaults. A warning appears in-game; copy the unreadable save aside before replacing it manually. Write failures also show an in-game warning.
+| Ability | Unlock requirement | Effect |
+| --- | --- | --- |
+| Scythe Combo | Starting ability | Three-hit melee combo |
+| Shuriken Jutsu | 3 enemy defeats | Camera-aimed three-shuriken spread |
+| Kenjutsu | Shuriken and 8 total defeats | Forward cutting attack |
+| Hidden Jutsu | Kenjutsu and mission 1 complete | Temporary evasion / invulnerability |
+| Shadow Clone | Hidden Jutsu and 6 defeats after mission 1 | Combat clone for 5 seconds |
+| Teleportation Kunai | Clone and mission 2 complete | Safe blink or enemy-targeted teleport |
+| Rasengan | Kunai and 5 defeats after mission 2 | Chakra projectile and area impact |
 
-Debug builds can use a separate profile at `%AppData%\Kadaya\test-save.json`. Press `F9` in a Debug build to toggle Test Mode. It grants access to all eye powers, shop items, summons, and maximum upgrades without adding permanent purchases to the normal profile. To start in Test Mode, create `%AppData%\Kadaya\development.json` with:
+The ability archive shows each requirement, cooldown, energy cost, availability, and upgrade level. Ability upgrades spend Shards, improve the existing combat effect, cap at level 5, and persist in the profile.
 
-```json
-{
-  "development_test_mode": true
-}
+## Shop catalog and in-game currency
+
+The Shop has **Eyes**, **Swords**, **Susano**, **Special Abilities**, and **Summons** categories. Shop entries use their existing gameplay catalog records. Eyes, weapons, Sage Modes, Susano aura variants, and summons can be bought with Money or Diamonds earned by playing. There are no real-money purchases, premium accounts, subscriptions, or online checks.
+
+Enemies award 25 Money, 2 Diamonds, and 1 Shard. Bosses award 150 Money, 10 Diamonds, and 5 Shards. Unlocked missions can be replayed to earn more currency. Purchases, equipped items, currencies, and upgrades are saved. Special abilities unlock from the mission and enemy-defeat progression shown in the archive; they are not sold as shop purchases.
+
+### Eyes
+
+| Eye | Price | Implemented action |
+| --- | ---: | --- |
+| Three-Tomoe Sharingan | 80 Diamonds | Fireball and enemy health reading |
+| Mangekyo Sharingan | 130 Diamonds | Fireball and Genjutsu; bosses resist sooner |
+| Byakugan | 100 Diamonds | Shuriken, Rotation defense, and scouting camera |
+| Kakashi Eye | 180 Diamonds | Five chakra attacks; switch Fire, Water, Wind, Earth, and Lightning |
+| Eternal Mangekyo Sharingan | 220 Diamonds | Fireball and damage-reducing, damage-boosting Susano transformation |
+| Jougan | 200 Diamonds | Shuriken, short time freeze, and hazard/objective vision |
+| Rinnegan | 260 Diamonds | Almighty Push damages enemies, interrupts projectiles, and disables nearby spikes |
+
+Three-Tomoe Sharingan, Mangekyo, and Eternal Mangekyo share the enemy-health-reading passive. Powers use the existing configured eye/ability controls shown in Settings and the HUD.
+
+### Swords and special items
+
+The Reaper Scythe is the starting weapon. The three purchasable swords are Moonlit Katana (450 Money), Chakra Blade (800 Money), and Lightning Blade (90 Diamonds). They use the existing 3D weapon rendering and melee damage modifiers.
+
+The three implemented Sage Modes are Toad (120 Diamonds), Snake (140 Diamonds), and Six Paths (240 Diamonds). Their timed effects increase scythe damage and regenerate health while active: Toad regenerates slowly, Snake regenerates fastest, and Six Paths lasts longest with the strongest damage boost. Two Susano variants are currently implemented: Azure and Crimson (100 Diamonds each). They change the aura color of the existing Susano form; they are not separate character-specific armored models.
+
+## Summons
+
+All 29 current summon definitions appear in the Summons shop and share the existing ownership, equip, call, dismiss, upgrade, and save systems:
+
+- **Toads:** Small Toad (25), Giant Battle Toad (60), Armored Toad (50), Legendary Toad (120), Toad Boss Summon (180).
+- **Dogs:** Ninja Tracking Dog (20), Pack of Ninja Dogs (45), Armored Combat Dog (55), Elite Summoning Hound (110).
+- **Birds:** Scout Bird (20), Giant Combat Bird (65), Eagle Summon (55), Legendary Sky Bird (130).
+- **Snakes:** Small Combat Snake (20), Giant Snake (70), Armored Snake (58), Legendary Serpent (130), Giant Boss Serpent (190).
+- **Other:** Healing Slug (45), Giant Turtle Summon (100), Wolf Pack Summon (50), Panther Summon (55), Dragon Summon (150), Shadow Beast Summon (125).
+- **Legendary:** Giant Toad Warrior (220), Ancient Serpent (250), Sky King Bird (230), Colossal Turtle Guardian (240), Shadow Emperor Beast (300).
+
+Prices are Diamonds. One companion can be active at a time. Toads and turtles guard or knock enemies back; dogs and wolves chase and interrupt; birds scout and dive; snakes bite, poison, and bind; the slug heals; panthers ambush; dragons and legendary summons use stronger area attacks. Shard upgrades improve the existing health, damage, duration, speed, healing, and cooldown stats, up to each entry's level cap.
+
+**Visual limitation:** summon bodies and their movement are procedural game geometry and animation states. These catalog entries do not include bespoke creature meshes, authored animation sets, or dedicated summon voice/music assets.
+
+## Upgrade screen
+
+The Upgrade screen covers every currently supported upgrade path:
+
+- All seven core abilities (up to level 5), with their combat-effect modifiers.
+- Owned summons (up to each summon definition's level cap, currently level 5).
+- Susano duration (base 3 seconds, up to 12 seconds at level 9).
+
+Ability upgrades cost `6 x (current level + 1)` Shards. Summon upgrade cost is the entry's base cost multiplied by `current level + 1` (base 8 Shards, maximum level 5). Susano duration upgrades cost `15 + 10 x current level` Shards and require the Eternal Mangekyo Sharingan to be owned. All effects and balances persist in the existing progression save.
+
+Weapons, eyes, Sage Modes, and aura variants do not currently have separate upgrade levels; their existing equipment effects are shown in the Shop. The Upgrade screen does not add duplicate or cosmetic-only upgrade controls.
+
+## Settings and saves
+
+Settings save separately to `%AppData%\Kadaya\settings.json`; campaign progression remains in `%AppData%\Kadaya\save.json` and the legacy `%AppData%\Kadaya\save.txt` migration is retained.
+
+Settings include master/music/effects volume and mute, HUD visibility toggles and scale/offset, keyboard rebinds with duplicate/reserved-key rejection and restore defaults, 1280x720 / 1600x900 / 1920x1080 resolution, fullscreen/windowed, VSync, 100% / 125% / 150% render quality, and camera sensitivity. Changes apply immediately. F6, F7, and F11 remain quick controls for quality, camera reset, and fullscreen.
+
+Unreadable progression files are preserved and protected from being overwritten. Debug builds can toggle Test Mode with F9. Test Mode uses `%AppData%\Kadaya\test-save.json`, is excluded from Release, and does not write test grants into the normal profile. Optional development startup configuration remains at `%AppData%\Kadaya\development.json`.
+
+## Audio and icon
+
+The existing audio files are compiled through `Content/Content.mgcb` and loaded through the MonoGame content manager:
+
+- `Content/Audio/MainMenu_Music.mp3` loops while the title menu is active and stops on game entry.
+- `Content/Audio/Reaper_Scythe_Attack.wav` plays once when the scythe's combat hit event fires.
+- `Content/Audio/Reaper_Transformation.mp3` plays once when Eternal Mangekyo activates Susano.
+
+Audio volume and mute settings apply to the menu song, imported effects, and existing procedural effects. The existing audio code has 19 procedural sound-effect definitions and three generated, looping level-music tracks. Missing imported files fall back to procedural sounds where an event has a fallback.
+
+The existing `Content/UI/kadaya_icon.ico` is used for the Windows executable and Inno Setup installer icon. The menu logo and particles are drawn with existing game primitives; no additional PNG or duplicate icon file is introduced.
+
+## Catalog audit and remaining asset work
+
+Fully wired gameplay systems currently include the seven core abilities, seven eye entries, three shop swords plus the starting Scythe, three Sage Modes, two Susano aura variants, all 29 summon definitions, currency rewards, saved ownership/equipment, and supported upgrade effects. Catalog items that have no underlying separate character/model variant are not presented as implemented: only Azure and Crimson Susano color variants exist, and no Itachi, Sasuke, Shisui, Madara, Obito/Kakashi, Indra, Hagoromo, or Sarada-specific Susano models are currently included.
+
+The player, enemies, realms, weapons, summon previews, and supernatural effects use the project's existing primitive/procedural 3D rendering. Dedicated authored meshes, bespoke character animation packs, and extra authored icons are not present in the current content. The Shop uses procedural previews from the real catalog entries rather than claiming missing artwork exists.
+
+## Verification commands
+
+```powershell
+dotnet run --project Kadaya.Tests/Kadaya.Tests.csproj -c Release
+dotnet build Kadaya.csproj
+dotnet build Kadaya.csproj -c Release
+dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -o publish
 ```
-
-Switching profiles saves each one to its own file; the setting, toggle, and Test Mode grants are excluded from Release builds. New Game resets campaign milestones while keeping permanent shop purchases, wallet balances, and upgrades.
-
-## Premium Shop and eye powers
-Press `P` in gameplay. Enemies award Money, Diamonds, and Shards; bosses award larger amounts. Buy weapons and Sage Modes with Money or Diamonds, and permanently unlock eyes with Diamonds. Shop ownership and equipment share the existing profile save. There are no real-money payments.
-
-Equip an eye, then use its powers:
-
-| Eye | Q | E | F |
-| --- | --- | --- | --- |
-| Three-Tomoe Sharingan | Camera-aimed Fireball with burning damage | Shadow Clone | — |
-| Mangekyo Sharingan | Fireball | Genjutsu disables a target (bosses resist sooner) | — |
-| Byakugan | Shuriken if no other eye is equipped | Rotation blocks incoming hits | Toggle independent level scouting camera |
-| Kakashi Eye | Fire, Water, Wind, Earth, or Lightning attack | Shadow Clone | Cycle the five chakra types |
-| Eternal Mangekyo | Fireball | Susanoo transformation | — |
-| Jougan | Shuriken if no other eye is equipped | Selective 1.5-second world freeze | Toggle hazard/objective vision |
-| Rinnegan | 10-meter 3D Almighty Push | Shadow Clone | — |
-
-The Rinnegan push kills ordinary enemies and disables nearby spike hazards; bosses take damage and knockback. Susanoo starts at 3 seconds and upgrades to a 12-second maximum with Shards in the Premium Shop. Sword purchases change the held weapon and melee damage. Sage Modes activate with `Z` and improve damage or regeneration for a limited time.
-
-## Premium summoning vault
-Press `M` during gameplay to browse 29 permanent premium summons. Every summon begins locked in normal play and must be bought with Diamonds earned in-game (2 per ordinary enemy defeat, 10 per boss); no real-money purchases are used. `Enter` equips an owned summon, `G` calls the equipped/selected summon, and `X` dismisses it. One summon can be active at a time. `B` buys the selected entry and `U` upgrades an owned summon with Shards (8, then increasing by 8 per level, up to level 5). Ownership, equipped summon, all currencies, and upgrades are saved and survive `N` starting a new campaign.
-
-Summons use role-specific procedural 3D placeholder models, movement, attacks, support effects, duration, health, cooldown, and upgrade stats. Toads/turtles guard and knock enemies back; dogs/wolves chase and interrupt; birds scout and dive; snakes bite, poison, and briefly bind ordinary foes; the slug heals; panthers ambush; dragons and legendary summons use area attacks. The Shadow Emperor has a dark-red aura and signature area pulse. `F9` Test Mode in Debug builds makes every summon available at maximum upgrade without granting normal-profile ownership or spending currency. Custom summon meshes, authored animation sets, and bespoke audio remain future asset work.
-
-## Verification
-Run the console checks with `dotnet run --project Kadaya.Tests/Kadaya.Tests.csproj`, and build Debug/Release with `dotnet build Kadaya.csproj` and `dotnet build Kadaya.csproj -c Release`. The GitHub Actions workflow builds the self-contained Windows installer.

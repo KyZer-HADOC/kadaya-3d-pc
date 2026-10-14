@@ -20,3 +20,18 @@
 /processorParam:TextureFormat=Color
 /build:Font.spritefont
 
+#begin Audio/MainMenu_Music.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/build:Audio/MainMenu_Music.mp3
+
+#begin Audio/Reaper_Scythe_Attack.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/build:Audio/Reaper_Scythe_Attack.wav
+
+#begin Audio/Reaper_Transformation.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/build:Audio/Reaper_Transformation.mp3
+
