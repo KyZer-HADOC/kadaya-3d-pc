@@ -272,7 +272,7 @@ namespace Kadaya
                 bool active = mission.Index == selectedMenuLevel;
                 bool isComplete = progression.Profile.CompletedMissionIds.Contains(mission.Id);
                 bool hovered = mouse.X >= x && mouse.X <= x + cardW && mouse.Y >= y && mouse.Y <= y + cardH;
-                Box(x + cardW / 2, y + cardH / 2, cardW, cardH, 0, new Color(7, 9, 17, active ? (byte)248 : (byte)225));
+                Box(x + cardW / 2, y + cardH / 2, cardW, cardH, 0, new Color(7, 9, 17, active ? 248 : 225));
                 Box(x + cardW / 2, y + 2, cardW, 3, 0, active ? CY : isComplete ? new Color(112, 220, 155) : Color.White * .18f);
                 Txt("MISSION " + mission.LevelNumber.ToString("00"), x + 10, y + 12, 11, active ? CY : LevelGen.Themes[selectedMenuMap].Accent);
                 Txt(mission.Name, x + 10, y + 38, 12, WH);
