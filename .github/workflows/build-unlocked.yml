@@ -1,0 +1,54 @@
+name: Build KADAYA All Unlocked setup
+
+# Builds the same game with every item, ability, mission and upgrade granted from the start
+# (compile symbol UNLOCK_ALL). Run it from the Actions tab, or it runs on pushes to claude/* branches.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ 'claude/**' ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run mission catalog, progression, shop, settings, story and camera checks
+        run: dotnet run --project Kadaya.Tests/Kadaya.Tests.csproj -c Release
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Publish game (self-contained, win-x64, all unlocked)
+        run: dotnet publish Kadaya.csproj -c Release -r win-x64 --self-contained true -p:UnlockAll=true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+
+      - name: Verify published game and audio content
+        shell: pwsh
+        run: |
+          $expected = @(
+            "publish/Kadaya.exe",
+            "publish/Content/Audio/MainMenu_Music.xnb",
+            "publish/Content/Audio/Reaper_Scythe_Attack.xnb",
+            "publish/Content/Audio/Reaper_Transformation.xnb"
+          )
+          foreach ($relativePath in $expected) {
+            $path = Join-Path $env:GITHUB_WORKSPACE $relativePath
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Published output is missing required file: $relativePath" }
+            if ((Get-Item -LiteralPath $path).Length -le 0) { throw "Published output contains an empty file: $relativePath" }
+          }
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build setup-unlocked.exe
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DUNLOCKED installer.iss'
+
+      - name: Upload setup-unlocked.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KADAYA-setup-unlocked
+          path: output/setup-unlocked.exe

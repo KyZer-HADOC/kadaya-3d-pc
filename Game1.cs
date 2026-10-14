@@ -214,7 +214,13 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             legacySavePath = ProgressionStore.GetLegacySavePath(appDataRoot);
             testProfilePath = ProgressionStore.GetTestProfilePath(appDataRoot);
             // Test Mode is always opt-in from Settings and starts in the normal profile.
+            // The "All Unlocked" edition (built with -p:UnlockAll=true) starts with every item, ability,
+            // mission and upgrade granted; F9 still switches back to the normal profile.
+#if UNLOCK_ALL
+            testMode = true;
+#else
             testMode = false;
+#endif
             LoadActiveProgression();
         }
 
