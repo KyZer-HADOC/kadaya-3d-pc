@@ -93,6 +93,165 @@ namespace Kadaya
             foreach (var p in pt) if (!p.Dk) { float k = Cl(p.L / p.M, 0, 1); var pos = ScreenAt(p.X, G - p.Y, p.Z); Glow(pos.X, pos.Y, p.Sz * (.6f + k) * 2.4f, Ad(p.C, k)); }
         }
 
+        // ---------- title and mission selection ----------
+        void DrawMenuThemeArt(Theme theme, float x, float y, float w, float h)
+        {
+            for (int i = 0; i < 14; i++)
+            {
+                float k = i / 13f;
+                Color sky = k < .68f ? Color.Lerp(theme.Sky0, theme.Sky1, k / .68f) : Color.Lerp(theme.Sky1, theme.Sky2, (k - .68f) / .32f);
+                Box(x + w * .5f, y + h * (i + .5f) / 14f, w, h / 14f + 1, 0, sky);
+            }
+            float moonX = x + w * .76f, moonY = y + h * .28f;
+            Glow(moonX, moonY, h * .22f, Ad(theme.Moon, .4f));
+            Circ(moonX, moonY, h * .095f, theme.Moon);
+            for (int i = 0; i < 7; i++)
+            {
+                float starX = x + w * (.08f + (i * .137f % .82f));
+                float starY = y + h * (.12f + (i * .193f % .48f));
+                Circ(starX, starY, i % 3 == 0 ? 2 : 1.2f, Color.White * .8f);
+            }
+            float groundY = y + h * .78f;
+            Box(x + w / 2, groundY + (y + h - groundY) / 2, w, y + h - groundY, 0, theme.Ground);
+            Tri(x + w * .18f, groundY - h * .11f, w * .4f, h * .32f, 0, theme.Far);
+            Tri(x + w * .53f, groundY - h * .13f, w * .56f, h * .39f, 0, theme.Mid);
+            if (theme.Style == 0)
+            {
+                for (int i = 0; i < 7; i++)
+                {
+                    float tx = x + w * (.08f + i * .145f), trunkH = h * (.32f + (i % 3) * .07f);
+                    Box(tx, groundY - trunkH * .42f, w * .025f, trunkH, 0, theme.Near);
+                    Tri(tx, groundY - trunkH * .68f, w * .18f, h * .27f, MathHelper.Pi, theme.Near);
+                    Tri(tx, groundY - trunkH * .84f, w * .13f, h * .22f, MathHelper.Pi, theme.Mid);
+                }
+            }
+            else if (theme.Style == 1)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    float gx = x + w * (.15f + i * .22f), gh = h * (.13f + (i % 2) * .04f);
+                    Box(gx, groundY - gh * .45f, w * .085f, gh, 0, Color.Lerp(theme.Near, theme.Fog, .12f));
+                    Box(gx, groundY - gh, w * .13f, h * .025f, 0, theme.Near);
+                    Ln(gx - w * .025f, groundY - gh * .72f, gx + w * .025f, groundY - gh * .72f, 2, theme.Accent);
+                    Ln(gx, groundY - gh * .83f, gx, groundY - gh * .62f, 2, theme.Accent);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    float tx = x + w * (.24f + i * .25f), top = groundY - h * (.40f + (i % 2) * .07f);
+                    Box(tx, (top + groundY) * .5f, w * .035f, groundY - top, 0, theme.Near);
+                    Box(tx, top, w * .17f, h * .035f, 0, theme.Accent);
+                    Tri(tx, top - h * .035f, w * .23f, h * .12f, 0, theme.Mid);
+                }
+                for (int i = 0; i < 8; i++)
+                    Circ(x + w * (.08f + i * .12f), y + h * (.70f + (i % 2) * .06f), 2 + i % 3, theme.Accent * .7f);
+            }
+            Box(x + w / 2, y + h - 2, w, 4, 0, theme.Accent);
+        }
+
+        void DrawMenuButton(string label, string detail, float x, float y, bool selected, bool hovered)
+        {
+            bool active = selected || hovered;
+            Box(x + 245, y + 25, 490, 50, 0, active ? new Color(52, 38, 72, 245) : new Color(6, 8, 18, 210));
+            Box(x + 245, y + 2, 490, 2, 0, active ? CY : Color.White * .22f);
+            Box(x + 245, y + 48, 490, 2, 0, active ? VI : Color.White * .13f);
+            Box(x + 2, y + 25, 4, 50, 0, active ? CY : Color.White * .2f);
+            Txt(label, x + 24, y + 10, 23, active ? WH : new Color(190, 185, 204));
+            Txt(detail, x + 465, y + 16, 13, active ? CY : new Color(133, 128, 149), 2);
+        }
+
+        void DrawMainMenu()
+        {
+            Box(W / 2, H / 2, W, H, 0, Color.Black * .48f);
+            Box(348, H / 2, 590, 590, 0, Color.Black * .52f);
+            Box(68, 90, 560, 3, 0, new Color(200, 110, 255));
+            Txt("KADAYA", 84, 100, 112, new Color(234, 218, 255), 0, new Color(138, 92, 255));
+            Txt("THE AGE OF SHADOWS", 93, 224, 24, new Color(255, 110, 139));
+            Txt("A 3D SHINOBI ACTION JOURNEY", 94, 259, 15, new Color(202, 192, 222));
+
+            string[] labels = { "CONTINUE", "MISSION SELECT", "NEW CAMPAIGN", "QUIT" };
+            string[] details =
+            {
+                "LEVEL " + (lv + 1),
+                "" + (Math.Min(progression.Profile.UnlockedLevel + 1, LevelGen.Themes.Length)) + " / " + LevelGen.Themes.Length + " OPEN",
+                "KEEP YOUR SHOP ITEMS",
+                "EXIT TO DESKTOP"
+            };
+            Point mouse = MenuVirtualMouse();
+            for (int i = 0; i < labels.Length; i++)
+            {
+                float y = 330 + i * 65;
+                bool hovered = mouse.X >= 76 && mouse.X <= 572 && mouse.Y >= y && mouse.Y <= y + 52;
+                DrawMenuButton(labels[i], details[i], 76, y, mainMenuIndex == i, hovered);
+            }
+
+            float cardX = 706, cardY = 100, cardW = 500, artY = 160, artH = 245;
+            Box(cardX + cardW / 2, 365, cardW, 520, 0, new Color(4, 6, 14, 225));
+            Box(cardX + cardW / 2, cardY, cardW, 3, 0, L.Th.Accent);
+            Txt("CURRENT FRONTIER", cardX + 26, 121, 15, Color.LightGray);
+            DrawMenuThemeArt(L.Th, cardX + 16, artY, cardW - 32, artH);
+            Txt("MISSION  " + (lv + 1).ToString("00"), cardX + 27, 420, 15, L.Th.Accent);
+            Txt(L.Th.Name, cardX + 27, 447, 27, WH);
+            Txt("BOSS: " + (lv == 0 ? "ONI WARLORD" : lv == 1 ? "THE WRAITH LORD" : "FIRE SHOGUN"), cardX + 27, 490, 15, new Color(255, 157, 125));
+            Txt("UNLOCKED MISSIONS  " + (Math.Min(progression.Profile.UnlockedLevel + 1, LevelGen.Themes.Length)) + " / " + LevelGen.Themes.Length,
+                cardX + 27, 527, 14, new Color(184, 174, 207));
+            Box(68, 618, 1140, 1, 0, Color.White * .28f);
+            Txt("↑ / ↓ SELECT     ENTER CONFIRM     MISSION SELECT TO EXPLORE THE MAPS", 70, 636, 14, Color.LightGray);
+            Txt("WASD MOVE  ·  MOUSE CAMERA  ·  SPACE JUMP  ·  SCYTHE COMBAT", 70, 666, 12, new Color(160, 149, 184));
+        }
+
+        void DrawMissionSelect()
+        {
+            Box(W / 2, H / 2, W, H, 0, Color.Black * .75f);
+            Txt("CHOOSE YOUR MISSION", W / 2, 52, 45, WH, 1, VI);
+            Txt("THE MAP PREVIEW CHANGES WITH YOUR SELECTION", W / 2, 108, 15, new Color(199, 189, 216), 1);
+            string[] descriptions =
+            {
+                "Hunt the Oni Warlord through the blood moon forest.",
+                "Cross the fog and break the Wraith Lord's guard.",
+                "Climb the burning temple and face the Fire Shogun."
+            };
+            Point mouse = MenuVirtualMouse();
+            for (int i = 0; i < LevelGen.Themes.Length; i++)
+            {
+                float x = 70 + i * 388, y = 178, w = 370, h = 382;
+                bool unlocked = i <= progression.Profile.UnlockedLevel;
+                bool hovered = mouse.X >= x && mouse.X <= x + w && mouse.Y >= y && mouse.Y <= y + h;
+                bool active = selectedMenuLevel == i;
+                Box(x + w / 2, y + h / 2, w, h, 0, new Color((byte)5, (byte)8, (byte)16, unlocked ? (byte)235 : (byte)205));
+                Box(x + w / 2, y + 2, w, 3, 0, active ? CY : Color.White * .2f);
+                Box(x + w / 2, y + h - 2, w, 3, 0, active ? VI : Color.White * .2f);
+                Box(x + 2, y + h / 2, 3, h, 0, active ? CY : Color.White * .2f);
+                Box(x + w - 2, y + h / 2, 3, h, 0, active ? CY : Color.White * .2f);
+                DrawMenuThemeArt(LevelGen.Themes[i], x + 12, y + 12, w - 24, 164);
+                Txt("MISSION " + (i + 1).ToString("00"), x + 20, y + 190, 13, LevelGen.Themes[i].Accent);
+                Txt(LevelGen.Themes[i].Name, x + 20, y + 216, 20, WH);
+                Txt(descriptions[i], x + 20, y + 250, 12, new Color(196, 190, 208));
+                Txt(unlocked ? "AVAILABLE" : "LOCKED — DEFEAT THE PREVIOUS BOSS", x + 20, y + 292, unlocked ? 14 : 11,
+                    unlocked ? new Color(140, 255, 184) : new Color(255, 141, 145));
+                if (hovered) Box(x + w / 2, y + h / 2, w - 8, h - 8, 0, new Color(255, 255, 255, 14));
+                if (active) Box(x + 22, y + h - 22, 38, 3, 0, CY);
+            }
+            Box(66, 586, 230, 54, 0, new Color(20, 16, 30, 245));
+            Txt("ESC  ·  BACK", 181, 603, 17, Color.LightGray, 1);
+            bool canStart = selectedMenuLevel <= progression.Profile.UnlockedLevel;
+            Box(888, 586, 324, 54, 0, canStart ? new Color(41, 34, 65, 245) : new Color(25, 25, 32, 240));
+            Box(888, 588, 324, 3, 0, canStart ? CY : Color.Gray);
+            Txt(canStart ? "ENTER  ·  DEPLOY MISSION" : "MISSION LOCKED", 1050, 602, 16, canStart ? WH : Color.Gray, 1);
+            Txt("← / → CHANGE MAP     CLICK A CARD TO PREVIEW", W / 2, 666, 13, new Color(185, 175, 203), 1);
+        }
+
+        Point MenuVirtualMouse()
+        {
+            float scale = Math.Min(Window.ClientBounds.Width / (float)W, Window.ClientBounds.Height / (float)H);
+            if (scale <= 0) return new Point(-1, -1);
+            float offsetX = (Window.ClientBounds.Width - W * scale) * .5f;
+            float offsetY = (Window.ClientBounds.Height - H * scale) * .5f;
+            return new Point((int)((mouseCur.X - offsetX) / scale), (int)((mouseCur.Y - offsetY) / scale));
+        }
+
         // ---------- HUD ----------
         void Bar(float x, float y, float w, float h, float v, Color c1, Color c2)
         {

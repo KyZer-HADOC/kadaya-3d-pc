@@ -688,13 +688,15 @@ namespace Kadaya
             if (state == "play") DrawHud();
             if (state == "title")
             {
-                Box(W / 2, H / 2, W, H, 0, Color.Black * .5f); Txt("KADAYA", W / 2, 80, 190, new Color(225, 195, 255), 1, PU);
-                Txt("THE GRIM REAPER", W / 2, 290, 44, new Color(255, 106, 128), 1, RD);
-                if ((int)(t * 1.6f) % 2 == 0) Txt(lv > 0 ? "ENTER  -  CONTINUE  (LEVEL " + (lv + 1) + ")" : "ENTER  -  START", W / 2, 370, 38, WH, 1);
-                Txt("N  -  NEW GAME", W / 2, 425, 24, new Color(180, 160, 220), 1);
-                Txt("WASD MOVE   SPACE JUMP   LEFT CLICK SCYTHE   SHIFT DODGE   E CLONES", W / 2, H - 120, 22, new Color(207, 192, 255), 1, PU);
-                Txt("MOVE MOUSE CAMERA   RIGHT CLICK RASENGAN   WHEEL ZOOM   F7 RESET", W / 2, H - 82, 20, new Color(207, 192, 255), 1, PU);
-                Txt("F6 RENDER QUALITY", W / 2, H - 48, 18, new Color(207, 192, 255), 1, PU);
+                if (levelSelectOpen) DrawMissionSelect();
+                else DrawMainMenu();
+            }
+            if (state == "launch")
+            {
+                Box(W / 2, H / 2, W, H, 0, Color.Black * .7f);
+                Txt("PREPARING THE FRONTIER", W / 2, 300, 46, WH, 1, VI);
+                Txt(LevelGen.Themes[queuedMenuLevel].Name, W / 2, 368, 20, CY, 1);
+                Txt("ENTERING THE SHADOWS...", W / 2, 430, 15, Color.LightGray, 1);
             }
             if (state == "dead") { Box(W / 2, H / 2, W, H, 0, new Color(20, 0, 10) * .65f); Txt("YOU HAVE BEEN REAPED", W / 2, 200, 84, RD, 1); Txt("LEVEL " + (lv + 1) + "     SOULS " + kills, W / 2, 320, 38, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RISE AGAIN FROM THE LAST SHRINE", W / 2, 400, 32, VI, 1); }
             if (state == "win") { Box(W / 2, H / 2, W, H, 0, new Color(10, 0, 20) * .6f); Txt("LEVEL " + (lv + 1) + " COMPLETE", W / 2, 190, 86, new Color(255, 220, 120), 1, OR); Txt("SOULS REAPED  " + kills, W / 2, 310, 38, WH, 1); if (winT > 1 && (int)(t * 1.6f) % 2 == 0) Txt(lv >= 2 ? "ENTER  -  FINISH" : "ENTER  -  NEXT LEVEL", W / 2, 390, 34, VI, 1); }

@@ -22,7 +22,8 @@ LMB melee combo | E eye power / Shadow Clone | RMB Rasengan | Q eye power / Shur
 F eye mode / Kenjutsu | C Hidden Jutsu | R Teleportation Kunai | Z Sage Mode
 Tab ability archive | P Premium Shop | M Premium Summon Vault | F6 quality | F7 camera reset
 In either shop: Up/Down select | B buy | Enter equip | U upgrade | G summon | X dismiss
-Enter confirm / continue | N new game | F11 fullscreen | Esc quit
+Title menu: Up/Down + Enter, or click | Mission select: Left/Right + Enter, or click a map | Esc back/quit
+In the title menu, Continue enters your saved frontier, Mission Select previews unlocked maps, and New Campaign resets story progress while keeping shop purchases. F11 fullscreen.
 
 ## Ability progression
 The Scythe is the starting melee weapon and keeps its existing combo. Abilities unlock from enemy defeats and boss-gate completions:
@@ -40,7 +41,9 @@ The Scythe is the starting melee weapon and keeps its existing combo. Abilities 
 Shuriken, Kenjutsu, Hidden Jutsu, and Teleportation Kunai have working combat actions. Shadow Clone creates one copy for 5 seconds, costs 40 soul energy, and has a 12-second cooldown. Rasengan costs 35 soul energy and has a 1.1-second cooldown. The `Tab` archive shows requirements, costs, cooldowns, and upgrade levels; `U` upgrades the selected unlocked ability with Shards.
 
 ## Saves and development Test Mode
-Normal progression is stored in `%AppData%\Kadaya\save.json`. The old `%AppData%\Kadaya\save.txt` level value is migrated the first time the JSON profile is created; migration leaves `save.txt` untouched. Press `N` from the title screen to start a new campaign and reset normal progression.
+Normal progression is stored in `%AppData%\Kadaya\save.json`. The old `%AppData%\Kadaya\save.txt` level value is migrated the first time the JSON profile is created; migration leaves `save.txt` untouched. Start a fresh story from **New Campaign** on the title menu; permanent shop purchases, wallet balances, and upgrades stay owned.
+
+The title menu keeps the 3D realm running behind it. Mission Select previews the Blood Moon Forest, Haunted Graveyard, and Burning Temple; later missions unlock when you defeat the previous mission's boss. Continue launches the most recently unlocked mission.
 
 If an existing JSON profile cannot be read, the game preserves that file and blocks writes to the recovered in-memory defaults. A warning appears in-game; copy the unreadable save aside before replacing it manually. Write failures also show an in-game warning.
 
