@@ -40,7 +40,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         SummoningService summoningService;
         ShopService shopService;
         SummonedCompanion summonedCompanion;
-        int selectedShopIndex, selectedAbilityIndex, selectedUpgradeIndex, selectedShopCategory;
+        int selectedShopIndex, selectedAbilityIndex, selectedUpgradeIndex, selectedUpgradeCategory, selectedShopCategory;
         int settingsSection, settingsRow;
         bool capturingSettingBinding;
         string capturingSettingAction = string.Empty;
@@ -291,6 +291,16 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         IReadOnlyList<ShopMenuEntry> CurrentShopEntries
         {
             get { return ShopMenuModel.Build((ShopCategory)Math.Max(0, Math.Min(4, selectedShopCategory))); }
+        }
+
+        SummoningDefinition SelectedSummon
+        {
+            get
+            {
+                IReadOnlyList<ShopMenuEntry> entries = CurrentShopEntries;
+                return summoningMenuOpen && selectedShopCategory == (int)ShopCategory.Summons &&
+                    selectedShopIndex >= 0 && selectedShopIndex < entries.Count ? entries[selectedShopIndex].Summon : null;
+            }
         }
 
         bool TryFindSummonSpawn(out float spawnX, out float spawnY, out float spawnZ)
