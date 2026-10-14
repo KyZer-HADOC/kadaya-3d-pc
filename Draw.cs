@@ -24,6 +24,7 @@ namespace Kadaya
         void Cres(float x, float y, float rx, float ry, float rot, bool flip, Color c) => sb.Draw(cres, new Vector2(x, y), null, c, rot, new Vector2(128), new Vector2(rx / 128f, ry / 128f), flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0);
         void Txt(string s, float x, float y, float size, Color c, int al = 0, Color? gl = null)
         {
+            s = SpriteFontText.ToSupportedGlyphs(s);
             float k = size / 64f; var sz = font.MeasureString(s) * k; float X = al == 1 ? x - sz.X / 2 : al == 2 ? x - sz.X : x; var gc = Ad(gl ?? c, .3f);
             foreach (var o in new[] { new Vector2(-2, 0), new Vector2(2, 0), new Vector2(0, -2), new Vector2(0, 2), new Vector2(-5, 0), new Vector2(5, 0), new Vector2(0, 5) }) sb.DrawString(font, s, new Vector2(X, y) + o * (size / 40f), gc, 0, Vector2.Zero, k, SpriteEffects.None, 0);
             sb.DrawString(font, s, new Vector2(X, y), c, 0, Vector2.Zero, k, SpriteEffects.None, 0);

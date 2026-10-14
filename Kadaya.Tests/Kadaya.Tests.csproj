@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\CameraMotion.cs" Link="CameraMotion.cs" />
+    <Compile Include="..\SpriteFontText.cs" Link="SpriteFontText.cs" />
     <Compile Include="..\AbilityProgression.cs" Link="AbilityProgression.cs" />
     <Compile Include="..\ProgressionStore.cs" Link="ProgressionStore.cs" />
     <Compile Include="..\DevelopmentSettings.cs" Link="DevelopmentSettings.cs" />

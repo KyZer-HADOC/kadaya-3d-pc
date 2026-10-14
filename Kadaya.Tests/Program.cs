@@ -10,6 +10,7 @@ namespace Kadaya.Tests
     {
         static void Main()
         {
+            VerifySpriteFontTextFallback();
             float yawDelta = CameraMotion.MouseYawDelta(100, 1);
             if (Math.Abs(yawDelta + .15f) > .0001f) throw new Exception("Mouse yaw sensitivity changed unexpectedly.");
 
@@ -44,6 +45,14 @@ namespace Kadaya.Tests
 
             Console.WriteLine("Camera motion checks passed.");
             Console.WriteLine("Ability progression checks passed.");
+        }
+
+        static void VerifySpriteFontTextFallback()
+        {
+            string safe = SpriteFontText.ToSupportedGlyphs("↑ / ↓ SELECT · BACK — ← →");
+            Require(safe == "^ / v SELECT | BACK - < >", "Menu symbols must be converted to glyphs supported by the bundled SpriteFont.");
+            foreach (char character in safe)
+                Require(character >= ' ' && character <= '~', "Every normalized SpriteFont character must be in the bundled ASCII glyph range.");
         }
 
         static void VerifyAbilityCatalogAndInitialUnlock()
