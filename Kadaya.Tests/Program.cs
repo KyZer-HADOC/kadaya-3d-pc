@@ -567,10 +567,15 @@ namespace Kadaya.Tests
                 "Mission 2 and Rasengan requirements must be visible.");
 
             IReadOnlyList<AbilityMenuRow> testRows = AbilityMenuModel.Build(new ProgressionService(new ProgressionProfile(), true));
+#if DEBUG
             Require(FindMenuRow(testRows, "clone").Status == "Available" && FindMenuRow(testRows, "rasengan").Status == "Available",
                 "Test Mode must show implemented abilities as Available.");
             Require(FindMenuRow(testRows, "clone").UpgradeLevel == clone.Definition.MaximumUpgradeLevel,
                 "Test Mode must show the maximum registered upgrade level.");
+#else
+            Require(FindMenuRow(testRows, "clone").Status == "Locked" && FindMenuRow(testRows, "rasengan").Status == "Locked",
+                "Release builds must keep Debug-only Test Mode abilities locked until normal progression unlocks them.");
+#endif
         }
 
         static AbilityMenuRow FindMenuRow(IReadOnlyList<AbilityMenuRow> rows, string id)
