@@ -203,15 +203,16 @@ namespace Kadaya
             }
 
             float cardX = 680, cardY = 86, cardW = 540;
+            MissionDefinition frontier = MissionCatalog.Get(Math.Max(0, Math.Min(MissionCatalog.All.Count - 1, lv)));
             Box(cardX + cardW / 2, 360, cardW, 600, 0, new Color(3, 5, 12, 207));
             Box(cardX + 1, cardY + 3, 2, 548, 0, Ad(L.Th.Accent, .8f));
             Txt("THE REAPER RETURNS", cardX + 32, 110, 14, new Color(209, 201, 220));
             DrawMenuThemeArt(L.Th, cardX + 22, 150, cardW - 44, 240);
             Txt("CURRENT FRONTIER", cardX + 30, 415, 13, Color.LightGray);
             Txt("MISSION  " + (lv + 1).ToString("00"), cardX + 30, 442, 15, L.Th.Accent);
-            Txt(L.Th.Name, cardX + 30, 468, 28, WH);
-            Txt("BOSS  /  " + (lv == 0 ? "ONI WARLORD" : lv == 1 ? "THE WRAITH LORD" : "FIRE SHOGUN"), cardX + 30, 512, 15, new Color(255, 157, 125));
-            Txt("OPEN MISSIONS  " + (Math.Min(progression.Profile.UnlockedLevel + 1, LevelGen.Themes.Length)) + " / " + LevelGen.Themes.Length,
+            Txt(frontier.Name, cardX + 30, 468, 24, WH);
+            Txt("BOSS  /  " + frontier.BossName.ToUpperInvariant(), cardX + 30, 512, 13, new Color(255, 157, 125));
+            Txt("MISSIONS CLEARED  " + progression.Profile.CompletedMissionIds.Count + " / " + MissionCatalog.All.Count,
                 cardX + 30, 544, 13, new Color(184, 174, 207));
             Box(cardX + cardW / 2, 582, cardW - 60, 1, 0, Color.White * .16f);
             Txt("3D DARK-FANTASY ACTION  ·  OFFLINE PROGRESSION", cardX + 30, 601, 12, new Color(180, 171, 197));
@@ -223,44 +224,92 @@ namespace Kadaya
         void DrawMissionSelect()
         {
             Box(W / 2, H / 2, W, H, 0, Color.Black * .75f);
-            Txt("CHOOSE YOUR MISSION", W / 2, 52, 45, WH, 1, VI);
-            Txt("THE MAP PREVIEW CHANGES WITH YOUR SELECTION", W / 2, 108, 15, new Color(199, 189, 216), 1);
-            string[] descriptions =
-            {
-                "Hunt the Oni Warlord through the blood moon forest.",
-                "Cross the fog and break the Wraith Lord's guard.",
-                "Climb the burning temple and face the Fire Shogun."
-            };
             Point mouse = MenuVirtualMouse();
-            for (int i = 0; i < LevelGen.Themes.Length; i++)
+            if (titlePage == "maps")
             {
-                float x = 70 + i * 388, y = 178, w = 370, h = 382;
-                bool unlocked = i <= progression.Profile.UnlockedLevel;
-                bool hovered = mouse.X >= x && mouse.X <= x + w && mouse.Y >= y && mouse.Y <= y + h;
-                bool active = selectedMenuLevel == i;
-                Box(x + w / 2, y + h / 2, w, h, 0, new Color((byte)5, (byte)8, (byte)16, unlocked ? (byte)235 : (byte)205));
-                Box(x + w / 2, y + 2, w, 3, 0, active ? CY : Color.White * .2f);
-                Box(x + w / 2, y + h - 2, w, 3, 0, active ? VI : Color.White * .2f);
-                Box(x + 2, y + h / 2, 3, h, 0, active ? CY : Color.White * .2f);
-                Box(x + w - 2, y + h / 2, 3, h, 0, active ? CY : Color.White * .2f);
-                DrawMenuThemeArt(LevelGen.Themes[i], x + 12, y + 12, w - 24, 164);
-                Txt("MISSION " + (i + 1).ToString("00"), x + 20, y + 190, 13, LevelGen.Themes[i].Accent);
-                Txt(LevelGen.Themes[i].Name, x + 20, y + 216, 20, WH);
-                Txt(descriptions[i], x + 20, y + 250, 12, new Color(196, 190, 208));
-                Txt(unlocked ? "AVAILABLE" : "LOCKED — DEFEAT THE PREVIOUS BOSS", x + 20, y + 292, unlocked ? 14 : 11,
-                    unlocked ? new Color(140, 255, 184) : new Color(255, 141, 145));
-                if (hovered) Box(x + w / 2, y + h / 2, w - 8, h - 8, 0, new Color(255, 255, 255, 14));
-                if (active) Box(x + 22, y + h - 22, 38, 3, 0, CY);
+                Txt("CHOOSE A REALM", W / 2, 52, 45, WH, 1, VI);
+                Txt("THREE DISTINCT MAPS  ·  FIFTEEN MISSIONS EACH  ·  ALL OPEN FOR REPLAY", W / 2, 108, 15, new Color(199, 189, 216), 1);
+                for (int i = 0; i < MissionCatalog.Maps.Count; i++)
+                {
+                    MissionMapDefinition map = MissionCatalog.Maps[i];
+                    float x = 70 + i * 388, y = 178, w = 370, h = 382;
+                    bool active = selectedMenuMap == i;
+                    bool hovered = mouse.X >= x && mouse.X <= x + w && mouse.Y >= y && mouse.Y <= y + h;
+                    int cleared = 0;
+                    foreach (MissionDefinition mission in MissionCatalog.All)
+                        if (mission.MapIndex == i && progression.Profile.CompletedMissionIds.Contains(mission.Id)) cleared++;
+                    Box(x + w / 2, y + h / 2, w, h, 0, new Color(5, 8, 16, 235));
+                    Box(x + w / 2, y + 2, w, 3, 0, active ? CY : Color.White * .2f);
+                    Box(x + w / 2, y + h - 2, w, 3, 0, active ? VI : Color.White * .2f);
+                    DrawMenuThemeArt(LevelGen.Themes[i], x + 12, y + 12, w - 24, 180);
+                    Txt("REALM  0" + (i + 1), x + 22, y + 208, 13, LevelGen.Themes[i].Accent);
+                    Txt(map.Name, x + 22, y + 234, 20, WH);
+                    Txt(map.Description, x + 22, y + 272, 12, new Color(196, 190, 208));
+                    Txt("15 SELECTABLE MISSIONS", x + 22, y + 315, 14, CY);
+                    Txt("CLEARED  " + cleared.ToString("00") + " / 15", x + 22, y + 346, 13, new Color(184, 174, 207));
+                    if (hovered) Box(x + w / 2, y + h / 2, w - 8, h - 8, 0, new Color(255, 255, 255, 14));
+                }
+                Box(66, 586, 230, 54, 0, new Color(20, 16, 30, 245));
+                Txt("ESC  ·  BACK", 181, 603, 17, Color.LightGray, 1);
+                Box(592, 613, 300, 54, 0, new Color(31, 21, 39, 245));
+                Txt("N  ·  NEW CAMPAIGN", 592, 603, 15, new Color(221, 187, 238), 1);
+                Box(888, 586, 324, 54, 0, new Color(41, 34, 65, 245));
+                Box(888, 588, 324, 3, 0, CY);
+                Txt("ENTER  ·  VIEW MISSIONS", 1050, 602, 16, WH, 1);
+                Txt("← / → CHOOSE REALM     ENTER VIEW LEVELS", W / 2, 666, 13, new Color(185, 175, 203), 1);
+                return;
             }
+
+            MissionDefinition selected = MissionCatalog.Get(selectedMenuLevel);
+            bool completed = progression.Profile.CompletedMissionIds.Contains(selected.Id);
+            float firstX = 55, firstY = 158, cardW = 164, cardH = 112, gapX = 10, gapY = 16;
+            Txt(MissionCatalog.Maps[selectedMenuMap].Name, 55, 46, 32, WH, 0, VI);
+            Txt("SELECT ANY MISSION  ·  CLEARED " + progression.Profile.CompletedMissionIds.Count + " / 45", 55, 91, 13, new Color(199, 189, 216));
+            for (int i = 0; i < MissionCatalog.MissionsPerMap; i++)
+            {
+                MissionDefinition mission = MissionCatalog.Get(selectedMenuMap * MissionCatalog.MissionsPerMap + i);
+                float x = firstX + (i % 5) * (cardW + gapX), y = firstY + (i / 5) * (cardH + gapY);
+                bool active = mission.Index == selectedMenuLevel;
+                bool isComplete = progression.Profile.CompletedMissionIds.Contains(mission.Id);
+                bool hovered = mouse.X >= x && mouse.X <= x + cardW && mouse.Y >= y && mouse.Y <= y + cardH;
+                Box(x + cardW / 2, y + cardH / 2, cardW, cardH, 0, new Color(7, 9, 17, active ? (byte)248 : (byte)225));
+                Box(x + cardW / 2, y + 2, cardW, 3, 0, active ? CY : isComplete ? new Color(112, 220, 155) : Color.White * .18f);
+                Txt("MISSION " + mission.LevelNumber.ToString("00"), x + 10, y + 12, 11, active ? CY : LevelGen.Themes[selectedMenuMap].Accent);
+                Txt(mission.Name, x + 10, y + 38, 12, WH);
+                Txt(isComplete ? "CLEARED" : "AVAILABLE", x + 10, y + 67, 10, isComplete ? new Color(140, 255, 184) : new Color(191, 183, 208));
+                Txt(mission.IsBossMilestone ? "MAJOR BOSS" : "BOSS", x + 10, y + 88, 9, new Color(255, 157, 125));
+                if (hovered) Box(x + cardW / 2, y + cardH / 2, cardW - 8, cardH - 8, 0, new Color(255, 255, 255, 12));
+            }
+            float right = 949;
+            Box(right + 138, 350, 276, 390, 0, new Color(5, 8, 16, 240));
+            Box(right + 2, 352, 3, 388, 0, Ad(LevelGen.Themes[selectedMenuMap].Accent, .9f));
+            DrawMenuThemeArt(LevelGen.Themes[selectedMenuMap], right + 14, 160, 248, 142);
+            Txt("MISSION " + selected.LevelNumber.ToString("00"), right + 18, 319, 13, LevelGen.Themes[selectedMenuMap].Accent);
+            Txt(selected.Name, right + 18, 346, 19, WH);
+            Txt("DIFFICULTY  " + selected.Difficulty + " / 15", right + 18, 382, 12, OR);
+            Txt(selected.IsBossMilestone ? "MAJOR BOSS ENCOUNTER" : "BOSS ENCOUNTER", right + 18, 408, 11, new Color(255, 157, 125));
+            Txt("BOSS  " + selected.BossName.ToUpperInvariant(), right + 18, 436, 11, WH);
+            Txt(selected.Objective, right + 18, 470, 11, new Color(196, 190, 208));
+            Txt("MISSION CLEAR REWARD", right + 18, 511, 10, VI);
+            Txt("M " + selected.RewardMoney + "  ·  D " + selected.RewardDiamonds + "  ·  S " + selected.RewardShards, right + 18, 528, 10, VI);
+            float bestTime;
+            string progress = completed ? "MISSION CLEARED" : "READY TO DEPLOY";
+            if (progression.Profile.BestMissionTimes.TryGetValue(selected.Id, out bestTime)) progress += "  ·  BEST " + FormatMissionTime(bestTime);
+            Txt(progress, right + 18, 550, 9, completed ? new Color(140, 255, 184) : new Color(184, 174, 207));
             Box(66, 586, 230, 54, 0, new Color(20, 16, 30, 245));
-            Txt("ESC  ·  BACK", 181, 603, 17, Color.LightGray, 1);
+            Txt("ESC  ·  MAPS", 181, 603, 17, Color.LightGray, 1);
             Box(592, 613, 300, 54, 0, new Color(31, 21, 39, 245));
             Txt("N  ·  NEW CAMPAIGN", 592, 603, 15, new Color(221, 187, 238), 1);
-            bool canStart = selectedMenuLevel <= progression.Profile.UnlockedLevel;
-            Box(888, 586, 324, 54, 0, canStart ? new Color(41, 34, 65, 245) : new Color(25, 25, 32, 240));
-            Box(888, 588, 324, 3, 0, canStart ? CY : Color.Gray);
-            Txt(canStart ? "ENTER  ·  DEPLOY MISSION" : "MISSION LOCKED", 1050, 602, 16, canStart ? WH : Color.Gray, 1);
-            Txt("← / → CHANGE MAP     CLICK A CARD TO PREVIEW", W / 2, 666, 13, new Color(185, 175, 203), 1);
+            Box(888, 586, 324, 54, 0, new Color(41, 34, 65, 245));
+            Box(888, 588, 324, 3, 0, CY);
+            Txt("ENTER  ·  PLAY MISSION", 1050, 602, 16, WH, 1);
+            Txt("ARROWS SELECT  ·  ENTER PLAY  ·  ESC MAPS", W / 2, 666, 13, new Color(185, 175, 203), 1);
+        }
+
+        string FormatMissionTime(float seconds)
+        {
+            TimeSpan time = TimeSpan.FromSeconds(Math.Max(0, seconds));
+            return string.Format("{0:00}:{1:00}", (int)time.TotalMinutes, time.Seconds);
         }
 
         Point MenuVirtualMouse()
@@ -332,7 +381,7 @@ namespace Kadaya
                 Txt(labels[i], X + 46, H - 48, 13, unlocked ? CY : Color.DimGray, 1);
                 Txt(readiness, X + 46, H - 28, 10, ready ? CY : OR, 1);
             }
-            if (settings.ShowVitals) foreach (var e in en) if (e.Boss && e.Aggro) { Bar(W / 2 - 260, 96, 520, 12, e.Hp / e.Mh, new Color(160, 16, 32), new Color(255, 96, 48)); Txt(e.Kind == 0 ? "ONI WARLORD" : e.Kind == 1 ? "THE WRAITH LORD" : "FIRE SHOGUN", W / 2, 58, 30, OR, 1); }
+            if (settings.ShowVitals) foreach (var e in en) if (e.Boss && e.Aggro) { Bar(W / 2 - 260, 96, 520, 12, e.Hp / e.Mh, new Color(160, 16, 32), new Color(255, 96, 48)); Txt(L.Mission.BossName.ToUpperInvariant(), W / 2, 58, 24, OR, 1); }
             if (settings.ShowVitals && (HasEye("sharingan") || HasEye("mangekyo") || HasEye("ems")))
             {
                 int shown = 0;

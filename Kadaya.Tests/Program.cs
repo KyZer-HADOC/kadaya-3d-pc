@@ -23,6 +23,7 @@ namespace Kadaya.Tests
                 throw new Exception("Camera follow must remain stable when no frame time has elapsed.");
 
             VerifyAbilityCatalogAndInitialUnlock();
+            VerifyMissionCatalogAndCompletion();
             VerifyMilestoneUnlockOrder();
             VerifySameThresholdMissionAndKillOrder();
             VerifyTestModeGrantIsTemporary();
@@ -46,7 +47,54 @@ namespace Kadaya.Tests
             VerifyGameSettingsPersistenceAndBindings();
 
             Console.WriteLine("Camera motion checks passed.");
+            Console.WriteLine("45-mission catalog checks passed.");
             Console.WriteLine("Ability progression checks passed.");
+        }
+
+        static void VerifyMissionCatalogAndCompletion()
+        {
+            Require(MissionCatalog.Maps.Count == 3, "The campaign must define exactly three maps.");
+            Require(MissionCatalog.All.Count == 45, "The campaign must define exactly forty-five missions.");
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            var layouts = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < MissionCatalog.All.Count; i++)
+            {
+                MissionDefinition mission = MissionCatalog.Get(i);
+                Require(mission.Index == i && ids.Add(mission.Id), "Every mission must have a stable unique ID and correct index.");
+                Require(mission.MapIndex == i / MissionCatalog.MissionsPerMap && mission.LevelNumber == i % MissionCatalog.MissionsPerMap + 1,
+                    "Missions must be grouped into three consecutive sets of fifteen.");
+                Require(layouts.Add(mission.RouteCode), "Every mission must provide a distinct route configuration.");
+                Require(mission.Name.Length > 0 && mission.Objective.Length > 0 && mission.Difficulty >= 1 && mission.Difficulty <= 15,
+                    "Every mission must have a name, objective, and valid difficulty.");
+                Require(mission.SpawnX >= 0 && mission.CompletionCondition == "boss-defeated-and-soul-gate-reached",
+                    "Every mission must define a valid player spawn and completion condition.");
+                Require(mission.RewardMoney > 0 && mission.RewardDiamonds > 0 && mission.RewardShards > 0,
+                    "Every mission must offer positive in-game rewards.");
+                foreach (char section in mission.RouteCode.Substring(2))
+                    Require("EGSCAR".IndexOf(section) >= 0, "Mission routes may only contain supported gameplay section types.");
+            }
+
+            ProgressionProfile profile = new ProgressionProfile();
+            ProgressionService progression = new ProgressionService(profile);
+            progression.CompleteMission(44, "burning-temple-15", 125f);
+            Require(profile.CompletedMissionIds.Contains("burning-temple-15") && profile.CompletedMissions == 1,
+                "Mission completion must persist an ID and count unique missions.");
+            Require(profile.UnlockedLevel == 44 && Math.Abs(profile.BestMissionTimes["burning-temple-15"] - 125f) < .001f,
+                "Completing the final mission must retain campaign progress and a best time.");
+            progression.CompleteMission(44, "burning-temple-15", 90f);
+            Require(profile.CompletedMissions == 1 && Math.Abs(profile.BestMissionTimes["burning-temple-15"] - 90f) < .001f,
+                "Replaying a mission must not double-count completion and should improve its best time.");
+
+            ProgressionProfile rewardProfile = new ProgressionProfile();
+            MissionDefinition rewardMission = MissionCatalog.Get(44);
+            SummoningEconomy.AwardMissionCompletion(rewardProfile, rewardMission);
+            Require(rewardProfile.CurrencyBalances["money"] == rewardMission.RewardMoney &&
+                rewardProfile.CurrencyBalances["diamonds"] == rewardMission.RewardDiamonds &&
+                rewardProfile.CurrencyBalances["shards"] == rewardMission.RewardShards,
+                "Mission rewards must be credited to the persisted in-game economy.");
+            rewardProfile.CurrencyBalances["money"] = int.MaxValue;
+            SummoningEconomy.AwardMissionCompletion(rewardProfile, rewardMission);
+            Require(rewardProfile.CurrencyBalances["money"] == int.MaxValue, "Mission reward balances must saturate instead of overflowing.");
         }
 
         static void VerifySpriteFontTextFallback()
@@ -267,6 +315,8 @@ namespace Kadaya.Tests
                     TotalEnemyDefeats = 19,
                     DefeatsSinceMission1 = 6,
                     DefeatsSinceMission2 = 0,
+                    CompletedMissionIds = new List<string> { "blood-moon-forest-01", "haunted-graveyard-03" },
+                    BestMissionTimes = new Dictionary<string, float> { ["blood-moon-forest-01"] = 93.5f },
                     EquippedEyeId = "eye.sharingan",
                     EquippedItemId = "shop.kunai"
                 };
@@ -283,6 +333,9 @@ namespace Kadaya.Tests
                     "JSON round-trip must preserve campaign and defeat progress.");
                 Require(loaded.DefeatsSinceMission1 == 6 && loaded.DefeatsSinceMission2 == 0,
                     "JSON round-trip must preserve post-mission defeat counters.");
+                Require(loaded.CompletedMissionIds.Contains("haunted-graveyard-03") &&
+                    Math.Abs(loaded.BestMissionTimes["blood-moon-forest-01"] - 93.5f) < .001f,
+                    "JSON round-trip must preserve stable mission completion IDs and best times.");
                 Require(SameItems(original.UnlockedAbilityIds, loaded.UnlockedAbilityIds), "JSON round-trip must preserve unlocked IDs.");
                 Require(SameItems(original.OwnedContentIds, loaded.OwnedContentIds), "JSON round-trip must preserve owned content.");
                 Require(loaded.EquippedEyeId == "eye.sharingan" && loaded.EquippedItemId == "shop.kunai",

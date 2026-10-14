@@ -170,6 +170,25 @@ namespace Kadaya
             profile.CurrencyBalances.TryGetValue("shards", out balance);
             profile.CurrencyBalances["shards"] = Math.Max(0, balance) + (boss ? BossShards : EnemyShards);
         }
+
+        public static void AwardMissionCompletion(ProgressionProfile profile, MissionDefinition mission)
+        {
+            if (profile == null) throw new ArgumentNullException(nameof(profile));
+            if (mission == null) throw new ArgumentNullException(nameof(mission));
+            if (profile.CurrencyBalances == null) profile.CurrencyBalances = new Dictionary<string, int>(StringComparer.Ordinal);
+            int balance;
+            profile.CurrencyBalances.TryGetValue("money", out balance);
+            profile.CurrencyBalances["money"] = AddSaturated(balance, mission.RewardMoney);
+            profile.CurrencyBalances.TryGetValue("diamonds", out balance);
+            profile.CurrencyBalances["diamonds"] = AddSaturated(balance, mission.RewardDiamonds);
+            profile.CurrencyBalances.TryGetValue("shards", out balance);
+            profile.CurrencyBalances["shards"] = AddSaturated(balance, mission.RewardShards);
+        }
+
+        private static int AddSaturated(int balance, int reward)
+        {
+            return (int)Math.Min(int.MaxValue, (long)Math.Max(0, balance) + Math.Max(0, reward));
+        }
     }
 
     public sealed class SummoningService

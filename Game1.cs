@@ -30,10 +30,10 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         MouseState mouseCur, mousePrev;
 
         string state = "title", banS = "";
-        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, summonCooldown, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1, camMouseIdle; bool ultHit = true, bossDead, cameraCaptured, abilityMenuOpen, summoningMenuOpen;
+        float t, shake, hitstop, cam, camY, camZ, flash, ult, banT, winT, summonCooldown, levelElapsed, camYaw = -MathHelper.PiOver2, camPitch = .19f, camDistance = 880, renderScale = 1, camMouseIdle; bool ultHit = true, bossDead, cameraCaptured, abilityMenuOpen, summoningMenuOpen;
         int lv, kills; Level L; float checkX, checkZ = 110; bool[] lit;
         bool levelSelectOpen;
-        int mainMenuIndex, selectedMenuLevel, queuedMenuLevel;
+        int mainMenuIndex, selectedMenuLevel, selectedMenuMap, queuedMenuLevel;
         float launchDelay;
         string titlePage = "main";
         ProgressionService progression;
@@ -1067,13 +1067,13 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             proj.Clear(); clones.Clear(); pt.Clear(); fx.Clear(); trail.Clear();
             summonedCompanion = null; summonCooldown = 0;
             P = new Pl { X = sx, Y = G, Z = sz, F = 1, Hp = 100, En = 50 }; checkX = sx; checkZ = sz; lit = new bool[L.Checks.Count]; for (int i = 0; i < lit.Length; i++) lit[i] = L.Checks[i] <= sx;
-            bossDead = false; ult = 0; ultHit = true; cam = Cl(sx - W * .5f, 0, L.GateX + 400 - W); camY = 0; camZ = sz; banS = "LEVEL " + (n + 1) + "  -  " + L.Th.Name; banT = 3.2f;
+            bossDead = false; ult = 0; ultHit = true; levelElapsed = 0; cam = Cl(sx - W * .5f, 0, L.GateX + 400 - W); camY = 0; camZ = sz; banS = "LEVEL " + (n + 1).ToString("00") + "  -  " + L.Mission.Name; banT = 3.2f;
             PlaySong(L.Th.Style);
         }
 
         void PreviewMenuLevel(int n)
         {
-            selectedMenuLevel = Math.Max(0, Math.Min(LevelGen.Themes.Length - 1, n));
+            selectedMenuLevel = Math.Max(0, Math.Min(MissionCatalog.All.Count - 1, n));
             L = LevelGen.Make(selectedMenuLevel); en = L.Foes;
             foreach (Foe foe in en) foe.Z = 110;
             P = new Pl { X = 250, Y = G, Z = 110, F = 1, Hp = 100, En = 50 };
@@ -1088,7 +1088,8 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
         {
             levelSelectOpen = true;
             titlePage = "maps";
-            selectedMenuLevel = Math.Max(0, Math.Min(progression.Profile.UnlockedLevel, LevelGen.Themes.Length - 1));
+            selectedMenuLevel = Math.Max(0, Math.Min(progression.Profile.UnlockedLevel, MissionCatalog.All.Count - 1));
+            selectedMenuMap = selectedMenuLevel / MissionCatalog.MissionsPerMap;
             PreviewMenuLevel(selectedMenuLevel);
         }
 
@@ -1101,9 +1102,9 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
 
         void QueueMenuLevel(int level)
         {
-            if (level < 0 || level >= LevelGen.Themes.Length || level > progression.Profile.UnlockedLevel)
+            if (level < 0 || level >= MissionCatalog.All.Count)
             {
-                banS = "MISSION LOCKED — DEFEAT THE PREVIOUS BOSS"; banT = 1.8f;
+                banS = "MISSION SELECTION IS INVALID"; banT = 1.8f;
                 return;
             }
             queuedMenuLevel = level; launchDelay = .35f; levelSelectOpen = false; titlePage = "main"; state = "launch";
@@ -1114,7 +1115,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             int action = item;
             if (HasContinueSave)
             {
-                if (action == 0) { QueueMenuLevel(Math.Max(0, Math.Min(progression.Profile.UnlockedLevel, LevelGen.Themes.Length - 1))); return; }
+                if (action == 0) { QueueMenuLevel(Math.Max(0, Math.Min(progression.Profile.UnlockedLevel, MissionCatalog.All.Count - 1))); return; }
                 action--;
             }
             switch (action)
@@ -1139,24 +1140,60 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             bool mousePressed = mouseCur.LeftButton == ButtonState.Pressed && mousePrev.LeftButton == ButtonState.Released;
             Point mouse = MenuVirtualMouse();
             float mouseX = mouse.X, mouseY = mouse.Y;
-            if (levelSelectOpen || titlePage == "maps")
+            if (titlePage == "maps")
             {
-                if (PrAction("MenuLeft")) { selectedMenuLevel = (selectedMenuLevel + LevelGen.Themes.Length - 1) % LevelGen.Themes.Length; PreviewMenuLevel(selectedMenuLevel); }
-                if (PrAction("MenuRight")) { selectedMenuLevel = (selectedMenuLevel + 1) % LevelGen.Themes.Length; PreviewMenuLevel(selectedMenuLevel); }
-                for (int i = 0; i < LevelGen.Themes.Length; i++)
+                if (PrAction("MenuLeft")) selectedMenuMap = (selectedMenuMap + MissionCatalog.Maps.Count - 1) % MissionCatalog.Maps.Count;
+                if (PrAction("MenuRight")) selectedMenuMap = (selectedMenuMap + 1) % MissionCatalog.Maps.Count;
+                for (int i = 0; i < MissionCatalog.Maps.Count; i++)
                 {
                     float x = 70 + i * 388;
                     if (mouseX >= x && mouseX <= x + 370 && mouseY >= 190 && mouseY <= 545)
-                    {
-                        if (selectedMenuLevel != i) { selectedMenuLevel = i; PreviewMenuLevel(i); }
-                    }
+                        selectedMenuMap = i;
                 }
+                if (L == null || L.Mission == null || L.Mission.MapIndex != selectedMenuMap)
+                    PreviewMenuLevel(selectedMenuMap * MissionCatalog.MissionsPerMap);
                 if (PrAction("Confirm") || mousePressed && mouseX >= 885 && mouseY >= 572 && mouseX <= 1210 && mouseY <= 650)
-                    QueueMenuLevel(selectedMenuLevel);
+                {
+                    titlePage = "levels"; levelSelectOpen = true;
+                    selectedMenuLevel = selectedMenuMap * MissionCatalog.MissionsPerMap;
+                    PreviewMenuLevel(selectedMenuLevel);
+                    return;
+                }
                 if (mousePressed && mouseX >= 64 && mouseY >= 572 && mouseX <= 280 && mouseY <= 650)
                 { levelSelectOpen = false; titlePage = "main"; PreviewMenuLevel(lv); }
                 if (mousePressed && mouseX >= 435 && mouseY >= 572 && mouseX <= 770 && mouseY <= 650) BeginNewCampaign();
                 if (Pr(Keys.N)) BeginNewCampaign();
+                return;
+            }
+
+            if (titlePage == "levels")
+            {
+                int local = selectedMenuLevel % MissionCatalog.MissionsPerMap;
+                int row = local / 5, col = local % 5;
+                if (PrAction("MenuLeft")) col = (col + 4) % 5;
+                if (PrAction("MenuRight")) col = (col + 1) % 5;
+                if (PrAction("MenuUp")) row = (row + 2) % 3;
+                if (PrAction("MenuDown")) row = (row + 1) % 3;
+                selectedMenuLevel = selectedMenuMap * MissionCatalog.MissionsPerMap + row * 5 + col;
+                for (int i = 0; i < MissionCatalog.MissionsPerMap; i++)
+                {
+                    int cardColumn = i % 5, cardRow = i / 5;
+                    float x = 55 + cardColumn * 174, y = 158 + cardRow * 128;
+                    if (mouseX >= x && mouseX <= x + 164 && mouseY >= y && mouseY <= y + 112)
+                        selectedMenuLevel = selectedMenuMap * MissionCatalog.MissionsPerMap + i;
+                }
+                if (selectedMenuLevel < 0 || selectedMenuLevel >= MissionCatalog.All.Count || selectedMenuLevel / MissionCatalog.MissionsPerMap != selectedMenuMap)
+                    selectedMenuLevel = selectedMenuMap * MissionCatalog.MissionsPerMap;
+                if (L == null || L.Mission == null || L.Mission.Index != selectedMenuLevel) PreviewMenuLevel(selectedMenuLevel);
+                if (PrAction("Confirm") || mousePressed && mouseX >= 885 && mouseY >= 572 && mouseX <= 1210 && mouseY <= 650)
+                    QueueMenuLevel(selectedMenuLevel);
+                if (mousePressed && mouseX >= 64 && mouseY >= 572 && mouseX <= 280 && mouseY <= 650)
+                {
+                    titlePage = "maps";
+                    selectedMenuMap = selectedMenuLevel / MissionCatalog.MissionsPerMap;
+                    return;
+                }
+                if (mousePressed && mouseX >= 435 && mouseY >= 572 && mouseX <= 770 && mouseY <= 650 || Pr(Keys.N)) BeginNewCampaign();
                 return;
             }
 
@@ -1357,6 +1394,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
 
         void UpdatePlay(float dt)
         {
+            levelElapsed += dt;
             if (banT > 0) banT -= dt;
             if (abilityMenuOpen) HandleAbilityMenuInput();
             if (shopMenuOpen || summoningMenuOpen) HandleShopInput();
@@ -1488,10 +1526,12 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 // soul pickups
                 foreach (var s in L.Souls) if (!s.Got && DistXZ(P.X, P.Z, s.X, 110) < 70 && Math.Abs(P.Y - 60 - s.Y) < 90) { s.Got = true; P.En = Math.Min(100, P.En + 15); Burst(s.X, s.Y, 20, VI, 300, 4, -100, .6f, 110); Sfx("soul", s.X); }
                 // gate
-                if (bossDead && P.X >= L.GateX - 20)
+                if (L.Mission.CompletionCondition == "boss-defeated-and-soul-gate-reached" && bossDead && P.X >= L.GateX - 20)
                 {
                     state = "win"; winT = 0;
-                    NotifyAbilityUnlocks(progression.CompleteMission()); SaveProgression(); Sfx("win", P.X);
+                    NotifyAbilityUnlocks(progression.CompleteMission(lv, L.Mission.Id, levelElapsed));
+                    SummoningEconomy.AwardMissionCompletion(progression.Profile, L.Mission);
+                    SaveProgression(); Sfx("win", P.X);
                 }
             }
             if (worldDt > 0)
@@ -1589,7 +1629,16 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             if (PrAction("Back"))
             {
                 if (capturingSettingBinding) { capturingSettingBinding = false; banS = "KEY BINDING CANCELLED"; banT = 1.2f; }
-                else if (state == "title" && (levelSelectOpen || titlePage != "main"))
+                else if (state == "title" && titlePage == "levels")
+                {
+                    titlePage = "maps";
+                    selectedMenuMap = selectedMenuLevel / MissionCatalog.MissionsPerMap;
+                }
+                else if (state == "title" && titlePage == "maps")
+                {
+                    levelSelectOpen = false; titlePage = "main"; PreviewMenuLevel(lv);
+                }
+                else if (state == "title" && titlePage != "main")
                 {
                     levelSelectOpen = false; titlePage = "main"; PreviewMenuLevel(lv);
                 }
@@ -1629,7 +1678,7 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
             else if (state == "launch")
             {
                 launchDelay -= dt;
-                if (launchDelay <= 0) { LoadLevel(queuedMenuLevel, 250); state = "play"; enteredPlayThisFrame = true; }
+                if (launchDelay <= 0) { MissionDefinition mission = MissionCatalog.Get(queuedMenuLevel); LoadLevel(queuedMenuLevel, mission.SpawnX, mission.SpawnZ); state = "play"; enteredPlayThisFrame = true; }
             }
             else if (state == "dead") { if (PrAction("Confirm")) { LoadLevel(lv, checkX, checkZ); state = "play"; enteredPlayThisFrame = true; } }
             else if (state == "win")
@@ -1637,13 +1686,13 @@ class SummonedCompanion { public SummoningDefinition Definition; public SummonUp
                 winT += dt;
                 if (PrAction("Confirm") && winT > 1)
                 {
-                    if (lv >= 2)
+                    if (lv >= MissionCatalog.All.Count - 1)
                     {
-                        lv = 0; progression.Profile.UnlockedLevel = 0; SaveProgression(); state = "end"; winT = 0;
+                        SaveProgression(); state = "end"; winT = 0;
                     }
                     else
                     {
-                        lv = progression.Profile.UnlockedLevel; SaveProgression(); LoadLevel(lv, 250); state = "play"; enteredPlayThisFrame = true;
+                        lv = Math.Min(MissionCatalog.All.Count - 1, lv + 1); SaveProgression(); LoadLevel(lv, 250); state = "play"; enteredPlayThisFrame = true;
                     }
                 }
             }

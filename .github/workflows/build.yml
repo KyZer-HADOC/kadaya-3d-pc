@@ -19,7 +19,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Run progression, shop, settings, and camera checks
+      - name: Run mission catalog, progression, shop, settings, and camera checks
         run: dotnet run --project Kadaya.Tests/Kadaya.Tests.csproj -c Release
 
       - name: Restore tools

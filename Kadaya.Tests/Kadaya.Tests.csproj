@@ -16,5 +16,6 @@
     <Compile Include="..\PremiumShop.cs" Link="PremiumShop.cs" />
     <Compile Include="..\GameSettings.cs" Link="GameSettings.cs" />
     <Compile Include="..\ShopMenuModel.cs" Link="ShopMenuModel.cs" />
+    <Compile Include="..\MissionCatalog.cs" Link="MissionCatalog.cs" />
   </ItemGroup>
 </Project>

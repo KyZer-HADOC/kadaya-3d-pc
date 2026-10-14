@@ -237,7 +237,66 @@ namespace Kadaya
                 Shape(mCone, Mx(x - 560, hh * .32f, -2650, 940, hh * .66f, 1050), Color.Lerp(th.Far, th.Mid, .18f));
                 Shape(mCone, Mx(x + 600, hh * .27f, -2740, 1020, hh * .56f, 1140), Color.Lerp(th.Far, Color.Black, .2f));
             }
+            RealmLandmarks3(cx, th);
             BgLayer(-1500, 380, .85f, Color.Lerp(th.Far, th.Mid, .6f), 500); BgLayer(-650, 330, 1.05f, th.Mid, 300); BgLayer(-230, 520, 1.4f, th.Near, 120);
+        }
+
+        void RealmLandmarks3(float cx, Theme th)
+        {
+            // Lightweight, map-specific silhouettes at a separate depth keep the three generated realms readable.
+            int first = (int)MathF.Floor((cx - 3200) / 1500), last = (int)MathF.Ceiling((cx + 3200) / 1500);
+            for (int i = first; i <= last; i++)
+            {
+                float x = i * 1500 + (Hs(i * 4.2f) - .5f) * 340;
+                float z = -850 - Hs(i * 8.1f) * 220;
+                if (th.Style == 0)
+                {
+                    float h = 720 + Hs(i * 2.3f) * 500;
+                    Color bark = new Color(24, 13, 22), leaf = Color.Lerp(th.Far, new Color(85, 18, 38), .42f);
+                    Shape(mFrus, Mx(x, h * .42f, z, 108, h * .86f, 100, (Hs(i + 7) - .5f) * .09f), bark);
+                    for (int branch = 0; branch < 4; branch++)
+                    {
+                        float side = branch % 2 == 0 ? -1 : 1, by = h * (.49f + branch * .08f);
+                        Shape(mCone, Mx(x + side * 150, by, z, 80, 350 + Hs(i + branch) * 100, 90, side * .6f), bark);
+                    }
+                    Shape(mCone, Mx(x, h * .78f, z, 510, 390, 480), leaf, Em(th.Accent, .08f));
+                    Shape(mCone, Mx(x - 105, h * .63f, z + 55, 380, 340, 390), Color.Lerp(leaf, th.Mid, .3f));
+                    Shape(mCone, Mx(x + 125, h * .66f, z - 25, 390, 360, 410), Color.Lerp(leaf, th.Far, .2f));
+                }
+                else if (th.Style == 1)
+                {
+                    float h = 250 + Hs(i * 5.7f) * 170, w = 350 + Hs(i * 3.1f) * 190;
+                    Color stone = new Color(17, 29, 39), edge = Color.Lerp(stone, th.Mid, .65f);
+                    Shape(mCube, Mx(x, h * .38f, z, w, h * .76f, 220), stone);
+                    Shape(mPyr, Mx(x, h * .86f, z, w * 1.22f, 125, 260, 0, MathF.PI / 4), edge);
+                    Shape(mCube, Mx(x, 92, z + 112, 108, 184, 10), new Color(5, 11, 19));
+                    Shape(mCyl, Mx(x - w * .42f, 105, z + 195, 36, 210, 36), edge);
+                    Shape(mCyl, Mx(x + w * .42f, 105, z + 195, 36, 210, 36), edge);
+                    for (int tomb = -2; tomb <= 2; tomb++)
+                    {
+                        float tx = x + tomb * 95;
+                        Shape(mCube, Mx(tx, 39 + Hs(i + tomb * 3) * 25, z + 285 + Hs(tomb * i) * 35, 52, 76, 34, 0, (Hs(i + tomb) - .5f) * .14f), Color.Lerp(stone, th.Far, .45f));
+                        Shape(mCube, Mx(tx, 79 + Hs(i - tomb * 4) * 25, z + 285 + Hs(tomb * i) * 35, 42, 12, 38), edge);
+                    }
+                    GlowAt(x, h + 40, z, 115, Ad(th.Moon, .12f));
+                }
+                else
+                {
+                    float h = 500 + Hs(i * 6.3f) * 180, w = 620 + Hs(i * 1.9f) * 250;
+                    Color stone = new Color(42, 20, 13), roof = new Color(77, 25, 13);
+                    Shape(mCube, Mx(x, h * .42f, z, w, h * .84f, 300), stone);
+                    for (int col = -2; col <= 2; col++)
+                        Shape(mCyl, Mx(x + col * w * .19f, h * .42f, z + 166, 46, h * .82f, 46), Color.Lerp(stone, th.Mid, .42f), Em(th.Accent, .09f));
+                    Shape(mCube, Mx(x, h * .86f, z + 85, w * 1.2f, 36, 430), Color.Lerp(stone, roof, .4f));
+                    Shape(mPyr, Mx(x, h + 118, z, w * 1.42f, 210, 510, 0, MathF.PI / 4), roof, Em(th.Accent, .13f));
+                    Shape(mCone, Mx(x, h + 248, z, 44, 170, 44), th.Accent, Em(th.Accent, .6f));
+                    for (int brazier = -1; brazier <= 1; brazier += 2)
+                    {
+                        Shape(mCyl, Mx(x + brazier * (w * .64f), 60, z + 310, 48, 120, 48), new Color(35, 18, 11));
+                        Shape(mCone, Mx(x + brazier * (w * .64f), 160, z + 310, 54, 130, 54), th.Accent, Em(th.Accent, .45f));
+                    }
+                }
+            }
         }
         void Foreground3()
         {
@@ -714,11 +773,12 @@ namespace Kadaya
             {
                 Box(W / 2, H / 2, W, H, 0, Color.Black * .7f);
                 Txt("PREPARING THE FRONTIER", W / 2, 300, 46, WH, 1, VI);
-                Txt(LevelGen.Themes[queuedMenuLevel].Name, W / 2, 368, 20, CY, 1);
+                MissionDefinition mission = MissionCatalog.Get(queuedMenuLevel);
+                Txt(MissionCatalog.Maps[mission.MapIndex].Name + "  /  " + mission.Name, W / 2, 368, 20, CY, 1);
                 Txt("ENTERING THE SHADOWS...", W / 2, 430, 15, Color.LightGray, 1);
             }
             if (state == "dead") { Box(W / 2, H / 2, W, H, 0, new Color(20, 0, 10) * .65f); Txt("YOU HAVE BEEN REAPED", W / 2, 200, 84, RD, 1); Txt("LEVEL " + (lv + 1) + "     SOULS " + kills, W / 2, 320, 38, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RISE AGAIN FROM THE LAST SHRINE", W / 2, 400, 32, VI, 1); }
-            if (state == "win") { Box(W / 2, H / 2, W, H, 0, new Color(10, 0, 20) * .6f); Txt("LEVEL " + (lv + 1) + " COMPLETE", W / 2, 190, 86, new Color(255, 220, 120), 1, OR); Txt("SOULS REAPED  " + kills, W / 2, 310, 38, WH, 1); if (winT > 1 && (int)(t * 1.6f) % 2 == 0) Txt(lv >= 2 ? "ENTER  -  FINISH" : "ENTER  -  NEXT LEVEL", W / 2, 390, 34, VI, 1); }
+            if (state == "win") { Box(W / 2, H / 2, W, H, 0, new Color(10, 0, 20) * .6f); Txt("LEVEL " + (lv + 1) + " COMPLETE", W / 2, 190, 86, new Color(255, 220, 120), 1, OR); Txt("SOULS REAPED  " + kills, W / 2, 310, 38, WH, 1); if (winT > 1 && (int)(t * 1.6f) % 2 == 0) Txt(lv >= MissionCatalog.All.Count - 1 ? "ENTER  -  FINISH" : "ENTER  -  NEXT LEVEL", W / 2, 390, 34, VI, 1); }
             if (state == "end") { Box(W / 2, H / 2, W, H, 0, Color.Black * .85f); Txt("THE REAPER'S JOURNEY ENDS", W / 2, 200, 70, new Color(225, 195, 255), 1, PU); Txt("THANK YOU FOR PLAYING KADAYA", W / 2, 310, 36, WH, 1); if ((int)(t * 1.6f) % 2 == 0) Txt("ENTER  -  RETURN TO TITLE", W / 2, 390, 30, VI, 1); }
             sb.End(); base.Draw(gt);
         }

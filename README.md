@@ -1,6 +1,6 @@
 # KADAYA: THE LAST SHADOW
 
-An offline 3D dark-fantasy ninja action game built with C# and MonoGame. Run left to right through three handcrafted procedural realms, cross platforming hazards, defeat enemies and bosses, use checkpoints, and unlock further missions. The existing third-person camera, combat, enemy AI, summon behavior, progression profile, and campaign remain part of the game.
+An offline 3D dark-fantasy ninja action game built with C# and MonoGame. The campaign defines 45 selectable missions across three procedural realms. Preserve and extend the existing third-person camera, combat, enemy AI, summon behavior, progression profile, and save format.
 
 ## Run and Windows installer
 
@@ -10,9 +10,31 @@ Every push to `main` runs the Windows build and test workflow. A successful run 
 
 ## Main menu and missions
 
-The main menu offers **Continue** when the active profile is readable, plus **Start**, **Shop**, **Upgrade**, **Settings**, and **Exit**. Start opens the map and mission selector. Blood Moon Forest is available at the beginning; defeating a mission boss opens the next mission. The map selector previews all three realms and can start a new campaign while preserving permanent shop ownership, currencies, and upgrades.
+The main menu offers **Continue** when the active profile is readable, plus **Start**, **Shop**, **Upgrade**, **Settings**, and **Exit**. Start opens separate map and level selectors. All 45 missions can be selected immediately; campaign progression is still recorded, but does not lock missions. The selector shows all 15 missions for a chosen map, each mission's boss and reward, cleared status, and best completion time. Completing an encounter saves its stable mission ID and time. Replays remain available and improve the best time without counting the mission completion twice. The selector can start a new campaign while preserving permanent shop ownership, currencies, and upgrades.
 
-The main menu keeps the existing 3D Reaper and realm scene running behind its interface. The three available environments are Blood Moon Forest, Haunted Graveyard, and Burning Temple. The game uses generated geometry, materials, fog, lighting, and effects rather than authored map-art assets.
+The main menu keeps the existing 3D Reaper and realm scene running behind its interface. The three available environments are Blood Moon Forest, Haunted Graveyard, and Burning Temple. The renderer now adds separate distant silhouettes for forest canopies, graveyard mausoleums/tombstones, and temple roofs/columns/braziers. Those pieces use the existing generated meshes; they are not authored map-art assets. Each mission has a stable ID, map and local level number, named objective, difficulty, route configuration, checkpoint cadence, boss identity, player spawn, completion condition, and in-game completion reward. Mission routes are composed from encounter, gap, spike, climb, ambush, and reward sections. The current mission implementation reuses the existing procedural environment and combat rules; it does not include 45 handcrafted environment meshes or bespoke boss AI for every mission.
+
+### Mission catalog and route layouts
+
+Route codes list the gameplay sections in order: `E` enemy encounter, `G` gap crossing, `S` spike hazard, `C` elevated platform climb, `A` ambush formation, `R` reward platform. The runtime prefixes the route with the map index (`0:`, `1:`, or `2:`). Every map has 15 named definitions and its own visual theme. The shared route builder varies section sequence, seeded dimensions, enemy formations, difficulty, checkpoints, and rewards.
+
+| Level | Blood Moon Forest (ID — mission, route) | Haunted Graveyard (ID — mission, route) | Burning Temple (ID — mission, route) |
+| ---: | --- | --- | --- |
+| 01 | `blood-moon-forest-01` — The Red Trail (`EGSCAREG`) | `haunted-graveyard-01` — Graveside Arrival (`SACREGGE`) | `burning-temple-01` — Ember Gate (`CGEASRSG`) |
+| 02 | `blood-moon-forest-02` — Rootbound Crossing (`ECRAGESE`) | `haunted-graveyard-02` — The Broken Wall (`GRASECGS`) | `burning-temple-02` — The Outer Stairs (`RAGESCGS`) |
+| 03 | `blood-moon-forest-03` — Moonlit Watch (`GSEACREG`) | `haunted-graveyard-03` — Lanterns Below (`CEGASRGE`) | `burning-temple-03` — Fallen Courtyard (`ESCGARGE`) |
+| 04 | `blood-moon-forest-04` — Bamboo Ambush (`SCGERAEG`) | `haunted-graveyard-04` — Tombkeeper's Path (`RSGCEAGE`) | `burning-temple-04` — The Furnace Walk (`GSCREAGE`) |
+| 05 | `blood-moon-forest-05` — Shrine of Ash (`AEGCRSEG`) | `haunted-graveyard-05` — Mausoleum Steps (`AGCRSESG`) | `burning-temple-05` — Bridge of Cinders (`AREGSCGS`) |
+| 06 | `blood-moon-forest-06` — The Split Canopy (`RSCGEAEG`) | `haunted-graveyard-06` — The Sunken Yard (`EGRSACGE`) | `burning-temple-06` — Temple Approach (`SEGRACGE`) |
+| 07 | `blood-moon-forest-07` — Warden's Hollow (`CAGSEERG`) | `haunted-graveyard-07` — Pale Watchers (`SGAERCGS`) | `burning-temple-07` — The Red Gallery (`CGRAESGS`) |
+| 08 | `blood-moon-forest-08` — Crimson Footbridge (`SGCREAEG`) | `haunted-graveyard-08` — Cryptside Crossing (`CRESGAGE`) | `burning-temple-08` — Collapsed Sanctum (`ASCEGRGE`) |
+| 09 | `blood-moon-forest-09` — The Hunter's Route (`EASGCRGE`) | `haunted-graveyard-09` — The Bell Tower Ruin (`GESCARSG`) | `burning-temple-09` — The Flamekeeper's Rise (`GECASRSG`) |
+| 10 | `blood-moon-forest-10` — Old Growth Ruins (`GCRSEAAG`) | `haunted-graveyard-10` — Widow's Courtyard (`ASGCREGE`) | `burning-temple-10` — Ashfall Arcade (`SRGCEAGE`) |
+| 11 | `blood-moon-forest-11` — Bloodroot Pass (`SREAGCEG`) | `haunted-graveyard-11` — The Hollow Procession (`RCEGASGS`) | `burning-temple-11` — The Burning Nave (`EACSGRGE`) |
+| 12 | `blood-moon-forest-12` — The Silent Clearing (`ACGERSGE`) | `haunted-graveyard-12` — Ashen Mausoleums (`SEACGRGE`) | `burning-temple-12` — Shogun's Courtyard (`RSGAECGS`) |
+| 13 | `blood-moon-forest-13` — Moonfall Ravine (`EGARCSEG`) | `haunted-graveyard-13` — The Last Lantern (`GCASERGS`) | `burning-temple-13` — The Inner Crucible (`GCESARSG`) |
+| 14 | `blood-moon-forest-14` — The Reaper's Approach (`RAEGSCGE`) | `haunted-graveyard-14` — Wraithbound Causeway (`EASRCGGE`) | `burning-temple-14` — Hall of Falling Embers (`AEGCRGSE`) |
+| 15 | `blood-moon-forest-15` — Warlord's Moon (`CGSEARAEG`) | `haunted-graveyard-15` — The Wraith's Crown (`CRGSEAGE`) | `burning-temple-15` — The Fire Shogun (`SGRCEAGE`) |
 
 ## Default controls
 
@@ -126,7 +148,7 @@ The existing `Content/UI/kadaya_icon.ico` is used for the Windows executable and
 
 Fully wired gameplay systems currently include the seven core abilities, seven eye entries, three shop swords plus the starting Scythe, three Sage Modes, two Susano aura variants, all 29 summon definitions, currency rewards, saved ownership/equipment, and supported upgrade effects. Catalog items that have no underlying separate character/model variant are not presented as implemented: only Azure and Crimson Susano color variants exist, and no Itachi, Sasuke, Shisui, Madara, Obito/Kakashi, Indra, Hagoromo, or Sarada-specific Susano models are currently included.
 
-The player, enemies, realms, weapons, summon previews, and supernatural effects use the project's existing primitive/procedural 3D rendering. Dedicated authored meshes, bespoke character animation packs, and extra authored icons are not present in the current content. The Shop uses procedural previews from the real catalog entries rather than claiming missing artwork exists.
+The player, enemies, realms, weapons, summon previews, and supernatural effects use the project's existing primitive/procedural 3D rendering. The added realm landmarks also use those procedural meshes. No external character/environment assets were imported, so no third-party model licence or attribution is claimed. Dedicated authored character meshes, rigged skeletal animation packs, authored boss models/attack sets, and extra authored icons are not present in the current content. The Shop uses procedural previews from the real catalog entries rather than claiming missing artwork exists.
 
 ## Verification commands
 

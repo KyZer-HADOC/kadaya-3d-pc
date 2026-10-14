@@ -120,6 +120,8 @@ namespace Kadaya
         public int DefeatsSinceMission1 { get; set; }
         public int DefeatsSinceMission2 { get; set; }
         public List<string> UnlockedAbilityIds { get; set; } = new List<string> { "scythe" };
+        public List<string> CompletedMissionIds { get; set; } = new List<string>();
+        public Dictionary<string, float> BestMissionTimes { get; set; } = new Dictionary<string, float>(StringComparer.Ordinal);
         public List<string> OwnedContentIds { get; set; } = new List<string>();
         public string EquippedEyeId { get; set; } = string.Empty;
         public string EquippedItemId { get; set; } = string.Empty;
@@ -217,16 +219,42 @@ namespace Kadaya
 
         public IReadOnlyList<string> CompleteMission()
         {
-            Profile.CompletedMissions = Math.Max(0, Profile.CompletedMissions) + 1;
-            Profile.UnlockedLevel = Math.Max(Profile.UnlockedLevel, Math.Min(2, Profile.CompletedMissions));
+            Profile.CompletedMissions = Math.Min(MissionCatalog.All.Count, Math.Max(0, Profile.CompletedMissions) + 1);
+            Profile.UnlockedLevel = Math.Max(Profile.UnlockedLevel, Math.Min(MissionCatalog.All.Count - 1, Profile.CompletedMissions));
+            return EvaluateUnlocks();
+        }
+
+        public IReadOnlyList<string> CompleteMission(int missionIndex, string missionId, float elapsedSeconds)
+        {
+            if (missionIndex < 0 || missionIndex >= MissionCatalog.All.Count)
+                throw new System.ArgumentOutOfRangeException(nameof(missionIndex));
+            if (string.IsNullOrWhiteSpace(missionId))
+                throw new System.ArgumentException("A stable mission ID is required.", nameof(missionId));
+            if (!string.Equals(MissionCatalog.Get(missionIndex).Id, missionId, StringComparison.Ordinal))
+                throw new System.ArgumentException("The mission ID does not match its catalog index.", nameof(missionId));
+
+            if (!Profile.CompletedMissionIds.Contains(missionId))
+            {
+                Profile.CompletedMissionIds.Add(missionId);
+                Profile.CompletedMissions = Math.Min(MissionCatalog.All.Count, Math.Max(0, Profile.CompletedMissions) + 1);
+            }
+            Profile.UnlockedLevel = Math.Max(Profile.UnlockedLevel, Math.Min(MissionCatalog.All.Count - 1, missionIndex + 1));
+            if (elapsedSeconds > 0 && !float.IsNaN(elapsedSeconds) && !float.IsInfinity(elapsedSeconds))
+            {
+                float best;
+                if (!Profile.BestMissionTimes.TryGetValue(missionId, out best) || elapsedSeconds < best)
+                    Profile.BestMissionTimes[missionId] = elapsedSeconds;
+            }
             return EvaluateUnlocks();
         }
 
         public void ResetNewGame()
         {
-            Profile.SchemaVersion = 2;
+            Profile.SchemaVersion = 3;
             Profile.UnlockedLevel = 0;
             Profile.CompletedMissions = 0;
+            Profile.CompletedMissionIds.Clear();
+            Profile.BestMissionTimes.Clear();
             Profile.TotalEnemyDefeats = 0;
             Profile.DefeatsSinceMission1 = 0;
             Profile.DefeatsSinceMission2 = 0;
@@ -254,20 +282,27 @@ namespace Kadaya
             Profile.EquippedSageModeId = equippedSage;
             Profile.EquippedSusanooVariantId = equippedSusanoo;
             Profile.EquippedSummonId = equippedSummon;
-            Profile.SchemaVersion = Math.Max(2, Profile.SchemaVersion);
+            Profile.SchemaVersion = Math.Max(3, Profile.SchemaVersion);
             // Purchases, wallet balances and permanent item upgrades belong to the account profile,
             // so starting a new campaign must not erase them.
         }
 
         private void NormalizeProfile()
         {
-            Profile.SchemaVersion = Math.Max(1, Profile.SchemaVersion);
-            Profile.UnlockedLevel = Math.Max(0, Math.Min(2, Profile.UnlockedLevel));
-            Profile.CompletedMissions = Math.Max(0, Profile.CompletedMissions);
+            Profile.SchemaVersion = Math.Max(3, Profile.SchemaVersion);
+            Profile.UnlockedLevel = Math.Max(0, Math.Min(MissionCatalog.All.Count - 1, Profile.UnlockedLevel));
+            Profile.CompletedMissions = Math.Max(0, Math.Min(MissionCatalog.All.Count, Profile.CompletedMissions));
             Profile.TotalEnemyDefeats = Math.Max(0, Profile.TotalEnemyDefeats);
             Profile.DefeatsSinceMission1 = Math.Max(0, Profile.DefeatsSinceMission1);
             Profile.DefeatsSinceMission2 = Math.Max(0, Profile.DefeatsSinceMission2);
             if (Profile.UnlockedAbilityIds == null) Profile.UnlockedAbilityIds = new List<string>();
+            if (Profile.CompletedMissionIds == null) Profile.CompletedMissionIds = new List<string>();
+            if (Profile.BestMissionTimes == null) Profile.BestMissionTimes = new Dictionary<string, float>(StringComparer.Ordinal);
+            var completedIds = new HashSet<string>(StringComparer.Ordinal);
+            Profile.CompletedMissionIds.RemoveAll(id => MissionCatalog.Get(id) == null || !completedIds.Add(id));
+            foreach (string id in new List<string>(Profile.BestMissionTimes.Keys))
+                if (MissionCatalog.Get(id) == null || Profile.BestMissionTimes[id] <= 0 || float.IsNaN(Profile.BestMissionTimes[id]) || float.IsInfinity(Profile.BestMissionTimes[id]))
+                    Profile.BestMissionTimes.Remove(id);
             if (Profile.OwnedContentIds == null) Profile.OwnedContentIds = new List<string>();
             if (Profile.UpgradeLevels == null) Profile.UpgradeLevels = new Dictionary<string, int>(StringComparer.Ordinal);
             if (Profile.CurrencyBalances == null) Profile.CurrencyBalances = new Dictionary<string, int>(StringComparer.Ordinal);

@@ -13,7 +13,7 @@ namespace Kadaya
     }
     class Level
     {
-        public Theme Th; public int Num;
+        public Theme Th; public int Num; public MissionDefinition Mission;
         public List<Vector2> Gaps = new List<Vector2>(), Spikes = new List<Vector2>();
         public List<Plat> Plats = new List<Plat>(); public List<Soul> Souls = new List<Soul>();
         public List<float> Checks = new List<float>(); public List<Foe> Foes = new List<Foe>();
@@ -33,44 +33,84 @@ namespace Kadaya
                 Far=new Color(36,10,4), Mid=new Color(22,6,3), Near=new Color(10,3,1), Fog=new Color(255,120,40), Accent=new Color(255,150,40), Ground=new Color(34,12,6) },
         };
 
-        static Foe Mk(int type, float x, int lv, bool boss = false)
+        static Foe Mk(int type, float x, int difficulty, int bossKind, bool boss = false)
         {
             float[] hp = { 40, 100, 34 }, sp = { 250, 120, 130 };
-            float h = hp[type] * (1 + lv * .25f); if (boss) { h = 650 + lv * 450; }
-            return new Foe { Type = type, Boss = boss, Kind = lv % 3, X = x, Y = G, Hp = h, Mh = h, Sp = boss ? 150 + lv * 15 : sp[type], S = boss ? 1.9f : 1, F = -1, Tm = .6f, Ph = x * .013f };
+            float h = hp[type] * (1 + Math.Max(0, difficulty - 1) * .22f); if (boss) { h = 650 + difficulty * 390; }
+            return new Foe { Type = type, Boss = boss, Kind = boss ? bossKind : (difficulty + type) % 3, X = x, Y = G, Hp = h, Mh = h, Sp = boss ? 150 + difficulty * 5 : sp[type], S = boss ? 1.9f : 1, F = -1, Tm = .6f, Ph = x * .013f };
         }
 
         public static Level Make(int lv)
         {
-            var r = new Random(1000 + lv * 77); var L = new Level { Th = Themes[lv % 3], Num = lv };
-            float x = 700; L.Checks.Add(250); int chunks = 6 + lv * 2;
+            MissionDefinition mission = MissionCatalog.Get(lv);
+            var r = new Random(1000 + lv * 77);
+            var L = new Level { Th = Themes[mission.MapIndex], Num = lv, Mission = mission };
+            int difficulty = mission.Difficulty;
+            float x = 700; L.Checks.Add(250);
             void Pack(float px, int n)
             {
                 for (int j = 0; j < n; j++)
                 {
-                    int roll = r.Next(10); int ty = roll < 5 - lv ? 0 : roll < 8 ? 1 : 2; if (lv == 0 && ty == 1 && j == 0) ty = 0;
-                    L.Foes.Add(Mk(ty, px + j * 140 + r.Next(60), lv));
+                    int roll = r.Next(10); int ty = roll < 4 ? 0 : roll < 7 ? 1 : 2;
+                    if (lv == 0 && j == 0) ty = 0;
+                    L.Foes.Add(Mk(ty, px + j * 140 + r.Next(60), difficulty, mission.BossKind));
                 }
             }
-            for (int i = 0; i < chunks; i++)
+            string route = mission.RouteCode.Substring(2);
+            for (int i = 0; i < route.Length; i++)
             {
-                int k = i == 0 ? 0 : r.Next(5);
-                switch (k)
+                switch (route[i])
                 {
-                    case 0: Pack(x + 350, 2 + r.Next(2) + lv); x += 1100; break;
-                    case 1:
-                        { float gw = 240 + r.Next(130); L.Gaps.Add(new Vector2(x, x + gw)); L.Plats.Add(new Plat { X = x + gw / 2 - 90, Y = G - 150, W = 180 }); L.Souls.Add(new Soul { X = x + gw / 2, Y = G - 220 }); x += gw + 550; L.Foes.Add(Mk(2, x - 100, lv)); break; }
-                    case 2:
-                        { float sw = 240 + r.Next(140); L.Spikes.Add(new Vector2(x, x + sw)); L.Plats.Add(new Plat { X = x + sw / 2 - 110, Y = G - 170, W = 220 }); L.Souls.Add(new Soul { X = x + sw / 2, Y = G - 240 }); x += sw + 600; L.Foes.Add(Mk(0, x - 150, lv)); break; }
-                    case 3:
-                        { L.Plats.Add(new Plat { X = x, Y = G - 120, W = 150 }); L.Plats.Add(new Plat { X = x + 230, Y = G - 230, W = 150 }); L.Plats.Add(new Plat { X = x + 460, Y = G - 300, W = 170 }); L.Plats.Add(new Plat { X = x + 700, Y = G - 200, W = 150 });
-                            L.Souls.Add(new Soul { X = x + 545, Y = G - 370 }); L.Souls.Add(new Soul { X = x + 300, Y = G - 300 }); Pack(x + 300, 2 + lv); x += 1000; break; }
-                    default: Pack(x + 300, 3 + lv + r.Next(2)); x += 1200; break;
+                    case 'E':
+                        Pack(x + 280, 2 + difficulty / 6 + r.Next(2)); x += 860 + r.Next(120); break;
+                    case 'G':
+                        {
+                            float gw = 230 + r.Next(150); float platformY = G - 125 - (mission.MapIndex == 2 ? 55 : 0);
+                            L.Gaps.Add(new Vector2(x, x + gw));
+                            L.Plats.Add(new Plat { X = x + gw / 2 - 95, Y = platformY, W = 190 });
+                            L.Souls.Add(new Soul { X = x + gw / 2, Y = platformY - 75 });
+                            x += gw + 520; L.Foes.Add(Mk(2, x - 95, difficulty, mission.BossKind)); break;
+                        }
+                    case 'S':
+                        {
+                            float sw = 230 + r.Next(160); float platformY = G - 145 - (mission.MapIndex == 1 ? 35 : 0);
+                            L.Spikes.Add(new Vector2(x, x + sw));
+                            L.Plats.Add(new Plat { X = x + sw / 2 - 108, Y = platformY, W = 216 });
+                            L.Souls.Add(new Soul { X = x + sw / 2, Y = platformY - 78 });
+                            x += sw + 560; L.Foes.Add(Mk(0, x - 135, difficulty, mission.BossKind)); break;
+                        }
+                    case 'C':
+                        {
+                            int rise = 150 + r.Next(110); int count = 3 + r.Next(2);
+                            for (int step = 0; step < count; step++)
+                            {
+                                float px = x + step * 205, py = G - 90 - step * rise / Math.Max(1, count - 1);
+                                L.Plats.Add(new Plat { X = px, Y = py, W = 150 + r.Next(35) });
+                                if (step > 0 && step < count - 1) L.Souls.Add(new Soul { X = px + 65, Y = py - 72 });
+                            }
+                            Pack(x + 310, 1 + difficulty / 7); x += count * 205 + 330; break;
+                        }
+                    case 'A':
+                        {
+                            int count = 2 + difficulty / 7;
+                            Pack(x + 250, count);
+                            L.Foes.Add(Mk((difficulty + 1) % 3, x + 250 + count * 140 + 45, difficulty, mission.BossKind));
+                            x += 900 + count * 105; break;
+                        }
+                    case 'R':
+                        {
+                            float baseY = G - (115 + mission.MapIndex * 25);
+                            L.Plats.Add(new Plat { X = x + 180, Y = baseY, W = 180 });
+                            L.Plats.Add(new Plat { X = x + 470, Y = baseY - 115, W = 190 });
+                            L.Souls.Add(new Soul { X = x + 260, Y = baseY - 75 });
+                            L.Souls.Add(new Soul { X = x + 555, Y = baseY - 190 });
+                            Pack(x + 760, 1 + difficulty / 8); x += 1120; break;
+                    }
                 }
-                if (i % 3 == 2) { L.Checks.Add(x + 100); x += 400; }
+                if ((i + 1) % mission.CheckpointInterval == 0 && i + 1 < route.Length) { L.Checks.Add(x + 80); x += 160; }
             }
-            L.Checks.Add(x + 100); float bx = x + 1200; L.GateX = x + 2100;
-            L.Foes.Add(Mk(0, bx, lv, true));
+            L.Checks.Add(x + 80); float bx = x + 650; L.GateX = x + 1480;
+            L.Foes.Add(Mk(0, bx, difficulty, mission.BossKind, true));
             foreach (var f in L.Foes)
             {
                 float a = 0, b = L.GateX + 600;
